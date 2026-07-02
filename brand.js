@@ -35,6 +35,7 @@ if (navbar && !navbar.classList.contains('navbar-solid')) {
         } else {
             navbar.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)';
         }
+    });
 }
 
 // ========== MOBILE HAMBURGER MENU ==========

@@ -479,6 +479,8 @@ html body {
     scroll-behavior: smooth;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
     padding: 10px 0;
     flex: 1;
     min-width: 0;
@@ -491,6 +493,7 @@ html body {
 .carousel-track .product-card {
     min-width: 180px;
     flex-shrink: 0;
+    scroll-snap-align: start;
 }
 
 .carousel-arrow {
@@ -946,6 +949,27 @@ html body {
         display: none;
     }
 
+    .best-sellers {
+        padding: var(--padding-section) 0;
+    }
+
+    .best-sellers .arrivals-header {
+        padding: 0 var(--padding-page);
+    }
+
+    .carousel-wrapper {
+        padding: 0 var(--padding-page);
+    }
+
+    .carousel-track {
+        gap: var(--gap-small);
+        scroll-padding-left: var(--padding-page);
+    }
+
+    .carousel-track .product-card {
+        min-width: 150px;
+    }
+
     .shop-content { flex-direction: column; }
     .shop-sidebar { width: 100%; display: flex; gap: 20px; flex-wrap: wrap; }
     .filter-group { flex: 1; min-width: 140px; margin-bottom: 0; }
@@ -979,4 +1003,16 @@ html body {
     .shop-grid { grid-template-columns: repeat(2, 1fr); gap: var(--gap-small); }
     .thumbnails { gap: 6px; }
     .thumb { width: 60px; height: 60px; }
+
+    .carousel-track .product-card {
+        min-width: 135px;
+    }
+
+    .carousel-track .product-info h4 {
+        font-size: 11px;
+    }
+
+    .carousel-track .product-info p {
+        font-size: 12px;
+    }
 }
