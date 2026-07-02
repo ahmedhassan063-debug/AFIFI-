@@ -752,7 +752,7 @@ html body {
 
 .values-section { padding: var(--padding-section) var(--padding-page); background: #fafafa; text-align: center; }
 .values-section h2 { font-family: var(--font-heading), sans-serif; font-size: clamp(24px, 3vw, 36px); letter-spacing: 4px; margin: 0 0 40px 0; color: var(--black); }
-.values-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-large); max-width: 900px; margin: 0 auto; }
+.values-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: var(--gap-large); max-width: 900px; margin: 0 auto; }
 .value-card { padding: 35px 25px; background: var(--white); border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: transform 0.3s ease; }
 .value-card:hover { transform: translateY(-5px); }
 .value-icon { font-size: 32px; margin-bottom: 18px; }
