@@ -4,21 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta name="description" content="AFIFI Oversized Tee – Premium quality oversized tee made from 100% Egyptian cotton with a relaxed fit and dropped shoulders.">
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
-
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="brand.css">
     <title>AFIFI | OVERSIZED TEE</title>
 </head>
 <body>
-
-<!--NAV BAR-->
 
 <nav class="navbar navbar-solid">
     <a href="index.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo"></a>
@@ -29,44 +21,28 @@
         <a href="contact.html">Contact</a>
     </div>
     <div class="icons">
-        <a href="#">
-            <img src="images/search icon.svg" alt="Search">
-        </a>
-        <a href="#">
-            <img src="images/cart.svg" alt="Cart">
-        </a>
-        <a href="#">
-            <img src="images/profile.svg" alt="Profile">
-        </a>
+        <a href="#"><img src="images/search icon.svg" alt="Search"></a>
+        <a href="#"><img src="images/cart.svg" alt="Cart"></a>
+        <a href="#"><img src="images/profile.svg" alt="Profile"></a>
     </div>
 </nav>
 
-
 <!--BREADCRUMBS-->
-
 <section class="breadcrumbs-section">
-    <div class="breadcrumbs">
-        <a href="index.html">Home</a>
-        <span>›</span>
-        <a href="shop.html">Shop</a>
-        <span>›</span>
-        <span>Oversized Tee</span>
-    </div>
+    <a href="index.html">Home</a> <span>›</span> <a href="shop.html">Shop</a> <span>›</span> <span>Oversized Tee</span>
 </section>
 
-
 <!--PRODUCT DETAIL-->
-
 <section class="product-detail">
     <div class="product-gallery">
         <div class="main-image">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Oversized Tee">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Oversized Tee" id="mainProductImg">
         </div>
         <div class="thumbnails">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Thumbnail 1" class="active-thumb">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Thumbnail 2">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Thumbnail 3">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Thumbnail 4">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 1" class="thumb active-thumb" onclick="changeImage(this)">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 2" class="thumb" onclick="changeImage(this)">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 3" class="thumb" onclick="changeImage(this)">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 4" class="thumb" onclick="changeImage(this)">
         </div>
     </div>
 
@@ -76,17 +52,17 @@
         <p class="product-desc">Premium quality oversized tee made from 100% Egyptian cotton. Features a relaxed fit with dropped shoulders for ultimate comfort and style.</p>
 
         <div class="color-options">
-            <label>Color</label>
+            <span class="option-label">Color</span>
             <div class="color-swatches">
-                <div class="color-swatch active" style="background-color: #0D0D0D;"></div>
-                <div class="color-swatch" style="background-color: #F5F5F5;"></div>
-                <div class="color-swatch" style="background-color: #8B7355;"></div>
+                <div class="color-swatch active" style="background:#0D0D0D" title="Black"></div>
+                <div class="color-swatch" style="background:#F5F5F5; border:1px solid #ddd" title="White"></div>
+                <div class="color-swatch" style="background:#8B7355" title="Brown"></div>
             </div>
         </div>
 
         <div class="size-options">
-            <label>Size</label>
-            <div class="size-buttons">
+            <span class="option-label">Size</span>
+            <div class="size-btns">
                 <button class="size-btn">S</button>
                 <button class="size-btn active">M</button>
                 <button class="size-btn">L</button>
@@ -95,180 +71,107 @@
         </div>
 
         <div class="quantity-selector">
-            <button class="qty-btn minus">−</button>
-            <span class="qty-value">1</span>
-            <button class="qty-btn plus">+</button>
+            <span class="option-label">Quantity</span>
+            <div class="qty-controls">
+                <button class="qty-btn" id="qtyMinus">−</button>
+                <span class="qty-value" id="qtyValue">1</span>
+                <button class="qty-btn" id="qtyPlus">+</button>
+            </div>
         </div>
 
         <button class="add-to-cart">ADD TO CART</button>
-        <a class="add-wishlist" href="#">♡ Add to Wishlist</a>
+        <a href="#" class="add-wishlist">♡ Add to Wishlist</a>
     </div>
 </section>
-
 
 <!--PRODUCT TABS-->
-
 <section class="product-tabs">
     <div class="tabs-header">
-        <button class="tab-btn active" data-tab="description">Description</button>
-        <button class="tab-btn" data-tab="size-guide">Size Guide</button>
+        <button class="tab-btn active" data-tab="desc">Description</button>
+        <button class="tab-btn" data-tab="size">Size Guide</button>
         <button class="tab-btn" data-tab="shipping">Shipping</button>
     </div>
-    <div class="tabs-content">
-        <div class="tab-content active" id="description">
-            <p>The AFIFI Oversized Tee is a statement piece crafted from premium 100% Egyptian cotton. Designed with a modern oversized silhouette, it features dropped shoulders, a relaxed body, and a slightly elongated hem for a contemporary streetwear look. The fabric is pre-washed for a soft, lived-in feel from the first wear. Available in multiple colorways, this essential piece pairs effortlessly with any outfit.</p>
-        </div>
-        <div class="tab-content" id="size-guide">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Size</th>
-                        <th>Chest (cm)</th>
-                        <th>Length (cm)</th>
-                        <th>Shoulder (cm)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>S</td>
-                        <td>112</td>
-                        <td>72</td>
-                        <td>54</td>
-                    </tr>
-                    <tr>
-                        <td>M</td>
-                        <td>118</td>
-                        <td>74</td>
-                        <td>56</td>
-                    </tr>
-                    <tr>
-                        <td>L</td>
-                        <td>124</td>
-                        <td>76</td>
-                        <td>58</td>
-                    </tr>
-                    <tr>
-                        <td>XL</td>
-                        <td>130</td>
-                        <td>78</td>
-                        <td>60</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="tab-content" id="shipping">
-            <p>We offer free shipping on all orders over 1,000 EGP within Egypt. Standard delivery takes 3–5 business days. Express shipping is available at checkout for 1–2 business day delivery. All orders are carefully packaged in our signature AFIFI boxes. For returns and exchanges, items must be unworn with original tags attached within 14 days of delivery.</p>
-        </div>
+    <div class="tab-content active" id="desc">
+        <p>The AFIFI Oversized Tee is designed for those who value both comfort and style. Crafted from premium 100% Egyptian cotton, this tee features a relaxed, oversized silhouette with dropped shoulders and a slightly longer body length.</p>
+        <p>The fabric undergoes a special washing process to achieve an incredibly soft hand feel that only gets better with each wash. The subtle AFIFI branding adds a touch of luxury without being overbearing.</p>
+        <ul>
+            <li>100% Egyptian Cotton</li>
+            <li>Oversized relaxed fit</li>
+            <li>Dropped shoulders</li>
+            <li>Pre-washed for softness</li>
+            <li>Ribbed crew neck</li>
+        </ul>
+    </div>
+    <div class="tab-content" id="size">
+        <table class="size-table">
+            <thead>
+                <tr><th>Size</th><th>Chest (cm)</th><th>Length (cm)</th><th>Shoulder (cm)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>S</td><td>108</td><td>70</td><td>52</td></tr>
+                <tr><td>M</td><td>114</td><td>72</td><td>54</td></tr>
+                <tr><td>L</td><td>120</td><td>74</td><td>56</td></tr>
+                <tr><td>XL</td><td>126</td><td>76</td><td>58</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="tab-content" id="shipping">
+        <p><strong>Shipping within Cairo:</strong> 2-3 business days — 60 EGP</p>
+        <p><strong>Shipping outside Cairo:</strong> 4-6 business days — 80 EGP</p>
+        <p><strong>Free shipping</strong> on orders above 2,000 EGP.</p>
+        <p>Returns accepted within 14 days of delivery. Items must be unworn and in original packaging with tags attached.</p>
     </div>
 </section>
-
 
 <!--RELATED PRODUCTS-->
-
 <section class="related-products">
     <h2>YOU MAY ALSO LIKE</h2>
-    <div class="products-grid">
+    <div class="products-grid related-grid">
         <div class="product-card">
-            <div class="product-img">
-                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo Tee">
-                <button class="wishlist">♡</button>
-            </div>
-            <div class="product-info">
-                <h4>LOGO TEE</h4>
-                <p>750 EGP</p>
-            </div>
+            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo Tee"></a><button class="wishlist">♡</button></div>
+            <div class="product-info"><h4>LOGO TEE</h4><p>750 EGP</p></div>
         </div>
         <div class="product-card">
-            <div class="product-img">
-                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Minimal Tee">
-                <button class="wishlist">♡</button>
-            </div>
-            <div class="product-info">
-                <h4>MINIMAL TEE</h4>
-                <p>700 EGP</p>
-            </div>
+            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Graphic Tee"></a><button class="wishlist">♡</button></div>
+            <div class="product-info"><h4>GRAPHIC TEE</h4><p>900 EGP</p></div>
         </div>
         <div class="product-card">
-            <div class="product-img">
-                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Graphic Tee">
-                <button class="wishlist">♡</button>
-            </div>
-            <div class="product-info">
-                <h4>GRAPHIC TEE</h4>
-                <p>900 EGP</p>
-            </div>
+            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Minimal Tee"></a><button class="wishlist">♡</button></div>
+            <div class="product-info"><h4>MINIMAL TEE</h4><p>700 EGP</p></div>
         </div>
         <div class="product-card">
-            <div class="product-img">
-                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Polo Shirt">
-                <button class="wishlist">♡</button>
-            </div>
-            <div class="product-info">
-                <h4>POLO SHIRT</h4>
-                <p>950 EGP</p>
-            </div>
+            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Polo Shirt"></a><button class="wishlist">♡</button></div>
+            <div class="product-info"><h4>POLO SHIRT</h4><p>950 EGP</p></div>
         </div>
     </div>
 </section>
 
-
 <!--FOOTER-->
-
 <footer class="site-footer">
     <div class="footer-main">
         <div class="footer-brand">
             <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="AFIFI Logo" class="footer-logo">
             <p>Premium Egyptian brand crafted with passion and dedicated to quality.</p>
             <div class="social-icons">
-                <a href="#" aria-label="Instagram">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg>
-                </a>
-                <a href="#" aria-label="TikTok">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg>
-                </a>
-                <a href="#" aria-label="Facebook">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
-                </a>
-                <a href="#" aria-label="YouTube">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 00.5 6.19 31.6 31.6 0 000 12a31.6 31.6 0 00.5 5.81 3.02 3.02 0 002.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 002.12-2.14A31.6 31.6 0 0024 12a31.6 31.6 0 00-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-                </a>
+                <a href="#" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg></a>
+                <a href="#" aria-label="TikTok"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg></a>
+                <a href="#" aria-label="Facebook"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+                <a href="#" aria-label="YouTube"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.38.55A3.02 3.02 0 00.5 6.19 31.6 31.6 0 000 12a31.6 31.6 0 00.5 5.81 3.02 3.02 0 002.12 2.14c1.88.55 9.38.55 9.38.55s7.5 0 9.38-.55a3.02 3.02 0 002.12-2.14A31.6 31.6 0 0024 12a31.6 31.6 0 00-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg></a>
             </div>
         </div>
         <div class="footer-links">
-            <div class="footer-col">
-                <h4>SHOP</h4>
-                <a href="#">All Products</a>
-                <a href="#">T-Shirts</a>
-                <a href="#">Hoodies</a>
-                <a href="#">Pants</a>
-                <a href="#">Accessories</a>
-            </div>
-            <div class="footer-col">
-                <h4>COMPANY</h4>
-                <a href="#">About Us</a>
-                <a href="#">Our Story</a>
-                <a href="#">Careers</a>
-                <a href="#">Contact Us</a>
-            </div>
-            <div class="footer-col">
-                <h4>SUPPORT</h4>
-                <a href="#">FAQ</a>
-                <a href="#">Shipping & Returns</a>
-                <a href="#">Size Guide</a>
-                <a href="#">Track Order</a>
-            </div>
+            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="#">T-Shirts</a><a href="#">Hoodies</a><a href="#">Pants</a><a href="#">Accessories</a></div>
+            <div class="footer-col"><h4>COMPANY</h4><a href="about.html">About Us</a><a href="about.html">Our Story</a><a href="#">Careers</a><a href="contact.html">Contact Us</a></div>
+            <div class="footer-col"><h4>SUPPORT</h4><a href="#">FAQ</a><a href="#">Shipping & Returns</a><a href="#">Size Guide</a><a href="#">Track Order</a></div>
         </div>
     </div>
     <div class="footer-bottom">
-        <p>© 2026 AFIFI BRANDS. All Rights Reserved.</p>
-        <div class="footer-bottom-links">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms & Conditions</a>
-        </div>
+        <p>&copy; 2026 AFIFI BRANDS. All Rights Reserved.</p>
+        <div class="footer-bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms & Conditions</a></div>
     </div>
 </footer>
 
-
 <script src="brand.js"></script>
+<button class="scroll-top" id="scrollTop" aria-label="Scroll to top">↑</button>
 </body>
 </html>
