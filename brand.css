@@ -480,6 +480,8 @@ html body {
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding: 10px 0;
+    flex: 1;
+    min-width: 0;
 }
 
 .carousel-track::-webkit-scrollbar {
@@ -941,9 +943,7 @@ html body {
     }
 
     .carousel-arrow {
-        width: 34px;
-        height: 34px;
-        font-size: 18px;
+        display: none;
     }
 
     .shop-content { flex-direction: column; }
