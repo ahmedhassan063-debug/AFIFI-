@@ -35,14 +35,13 @@ html body {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
     background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     z-index: 10;
-    padding: 10px 0;
+    padding: 10px var(--padding-page);
     box-sizing: border-box;
 }
 
@@ -96,6 +95,48 @@ html body {
 .icons img {
     width: 22px;
     height: 22px;
+}
+
+/* Hamburger Button */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 11;
+}
+
+.hamburger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--white);
+    transition: all 0.3s ease;
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -5px);
+}
+
+/* Nav Menu (Desktop: flex row, Mobile: hidden) */
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    justify-content: space-between;
 }
 
 /* ========== HERO SECTION ========== */
@@ -832,10 +873,47 @@ html body {
     }
 
     .navbar {
-        justify-content: center;
+        justify-content: space-between;
+        padding: 10px 5%;
     }
 
-    .navbar .sections {
+    /* Mobile Hamburger Menu */
+    .hamburger {
+        display: flex;
+    }
+
+    .nav-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: var(--black);
+        flex-direction: column;
+        padding: 20px var(--padding-page) 30px;
+        box-sizing: border-box;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .nav-menu.open {
+        display: flex;
+    }
+
+    .nav-menu .sections {
+        flex-direction: column;
+        gap: 0;
+        width: 100%;
+    }
+
+    .nav-menu .sections a {
+        padding: 14px 0;
+        border-bottom: 1px solid #222;
+        width: 100%;
+        font-size: 15px;
+    }
+
+    .nav-menu .icons {
+        padding: 15px 0 0 0;
         justify-content: center;
     }
 
