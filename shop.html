@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.3">
+    <link rel="stylesheet" href="brand.css?v=1.5">
     <title>AFIFI | SHOP</title>
 </head>
 <body>
@@ -25,131 +25,129 @@
             <a href="contact.html">Contact</a>
         </div>
         <div class="icons">
-            <a href="#"><img src="images/search icon.svg" alt="Search"></a>
-            <a href="#"><img src="images/cart.svg" alt="Cart"></a>
-            <a href="#"><img src="images/profile.svg" alt="Profile"></a>
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt="Search"></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt="Cart"></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt="Profile"></a>
         </div>
     </div>
 </nav>
 
-<!--PAGE HEADER-->
 <section class="page-header">
     <h1>OUR COLLECTION</h1>
     <div class="breadcrumbs">
-        <a href="index.html">Home</a> <span>›</span> <span>Shop</span>
+        <a href="index.html">Home</a> <span>&rsaquo;</span> <span>Shop</span>
     </div>
 </section>
 
-<!--SHOP CONTENT-->
 <section class="shop-content">
     <aside class="shop-sidebar">
         <div class="filter-group">
             <h3>Categories</h3>
-            <button class="filter-btn active">All</button>
-            <button class="filter-btn">T-Shirts</button>
-            <button class="filter-btn">Hoodies</button>
-            <button class="filter-btn">Pants</button>
-            <button class="filter-btn">Accessories</button>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="t-shirts">T-Shirts</button>
+            <button class="filter-btn" data-filter="hoodies">Hoodies</button>
+            <button class="filter-btn" data-filter="pants">Pants</button>
+            <button class="filter-btn" data-filter="accessories">Accessories</button>
         </div>
         <div class="filter-group">
             <h3>Sort By</h3>
-            <select class="sort-select">
-                <option>Newest</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
+            <select class="sort-select" aria-label="Sort products">
+                <option value="newest">Newest</option>
+                <option value="low-high">Price: Low to High</option>
+                <option value="high-low">Price: High to Low</option>
             </select>
         </div>
+        <p class="shop-count" id="shopCount">12 products</p>
     </aside>
 
     <div class="shop-grid">
-        <div class="product-card">
+        <div class="product-card" data-category="t-shirts" data-price="850" data-order="1" data-name="OVERSIZED TEE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Oversized Tee"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Oversized Tee to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>OVERSIZED TEE</h4><p>850 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="t-shirts" data-price="750" data-order="2" data-name="LOGO TEE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Logo Tee"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Logo Tee to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>LOGO TEE</h4><p>750 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="hoodies" data-price="1350" data-order="3" data-name="HOODIE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Hoodie"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Hoodie to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>HOODIE</h4><p>1,350 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="hoodies" data-price="1250" data-order="4" data-name="ESSENTIAL HOODIE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Essential Hoodie"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Essential Hoodie to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>ESSENTIAL HOODIE</h4><p>1,250 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="pants" data-price="1150" data-order="5" data-name="CARGO PANTS">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Cargo Pants"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Cargo Pants to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>CARGO PANTS</h4><p>1,150 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="accessories" data-price="650" data-order="6" data-name="AFIFI CAP">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Afifi Cap"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Afifi Cap to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>AFIFI CAP</h4><p>650 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="t-shirts" data-price="700" data-order="7" data-name="MINIMAL TEE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Minimal Tee"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Minimal Tee to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>MINIMAL TEE</h4><p>700 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="t-shirts" data-price="900" data-order="8" data-name="GRAPHIC TEE">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Graphic Tee"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Graphic Tee to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>GRAPHIC TEE</h4><p>900 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="pants" data-price="1100" data-order="9" data-name="JOGGER PANTS">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Jogger Pants"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Jogger Pants to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>JOGGER PANTS</h4><p>1,100 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="hoodies" data-price="1800" data-order="10" data-name="BOMBER JACKET">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Bomber Jacket"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Bomber Jacket to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>BOMBER JACKET</h4><p>1,800 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="t-shirts" data-price="950" data-order="11" data-name="POLO SHIRT">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Polo Shirt"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Polo Shirt to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>POLO SHIRT</h4><p>950 EGP</p></div>
         </div>
-        <div class="product-card">
+        <div class="product-card" data-category="accessories" data-price="550" data-order="12" data-name="BUCKET HAT">
             <div class="product-img">
                 <a href="product.html"><img src="images/Brand-logo.jpg" alt="Bucket Hat"></a>
-                <button class="wishlist">♡</button>
+                <button class="wishlist" aria-label="Add Bucket Hat to wishlist">&hearts;</button>
             </div>
             <div class="product-info"><h4>BUCKET HAT</h4><p>550 EGP</p></div>
         </div>
     </div>
 </section>
 
-<!--FOOTER-->
 <footer class="site-footer">
     <div class="footer-main">
         <div class="footer-brand">
@@ -157,23 +155,23 @@
             <p>Premium Egyptian brand crafted with passion and dedicated to quality.</p>
             <div class="social-icons">
                 <a href="https://www.instagram.com/afifi_15may?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" aria-label="Instagram" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg></a>
-                <a href=https://www.tiktok.com/@afifi9087?is_from_webapp=1&sender_device=pc aria-label="TikTok" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg></a>
+                <a href="https://www.tiktok.com/@afifi9087?is_from_webapp=1&sender_device=pc" aria-label="TikTok" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg></a>
                 <a href="https://www.facebook.com/Afifibrands" aria-label="Facebook" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
             </div>
         </div>
         <div class="footer-links">
-            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="#">T-Shirts</a><a href="#">Hoodies</a><a href="#">Pants</a><a href="#">Accessories</a></div>
+            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="shop.html">T-Shirts</a><a href="shop.html">Hoodies</a><a href="shop.html">Pants</a><a href="shop.html">Accessories</a></div>
             <div class="footer-col"><h4>COMPANY</h4><a href="about.html">Our Story</a><a href="contact.html">Contact Us</a></div>
-            <div class="footer-col"><h4>SUPPORT</h4><a href="#">FAQ</a></div>
+            <div class="footer-col"><h4>SUPPORT</h4><a href="support.html">FAQ</a><a href="support.html#shipping">Shipping & Returns</a><a href="support.html#size-guide">Size Guide</a></div>
         </div>
     </div>
     <div class="footer-bottom">
         <p>&copy; 2026 AFIFI BRANDS. All Rights Reserved.</p>
-        <div class="footer-bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms & Conditions</a></div>
+        <div class="footer-bottom-links"><a href="support.html#privacy">Privacy Policy</a><a href="support.html#terms">Terms & Conditions</a></div>
     </div>
 </footer>
 
-<script src="brand.js?v=1.3"></script>
-<button class="scroll-top" id="scrollTop" aria-label="Scroll to top">↑</button>
+<script src="brand.js?v=1.5"></script>
+<button class="scroll-top" id="scrollTop" aria-label="Scroll to top">&uarr;</button>
 </body>
 </html>
