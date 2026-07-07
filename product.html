@@ -44,10 +44,18 @@
             <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Oversized Tee" id="mainProductImg">
         </div>
         <div class="thumbnails">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 1" class="thumb active-thumb" onclick="changeImage(this)">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 2" class="thumb" onclick="changeImage(this)">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 3" class="thumb" onclick="changeImage(this)">
-            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 4" class="thumb" onclick="changeImage(this)">
+            <button type="button" class="thumb-btn" aria-label="View 1" aria-pressed="true">
+                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 1" class="thumb active-thumb">
+            </button>
+            <button type="button" class="thumb-btn" aria-label="View 2" aria-pressed="false">
+                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 2" class="thumb">
+            </button>
+            <button type="button" class="thumb-btn" aria-label="View 3" aria-pressed="false">
+                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 3" class="thumb">
+            </button>
+            <button type="button" class="thumb-btn" aria-label="View 4" aria-pressed="false">
+                <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="View 4" class="thumb">
+            </button>
         </div>
     </div>
 
@@ -59,19 +67,19 @@
         <div class="color-options">
             <span class="option-label">Color</span>
             <div class="color-swatches">
-                <div class="color-swatch active" style="background:#0D0D0D" title="Black"></div>
-                <div class="color-swatch" style="background:#F5F5F5; border:1px solid #ddd" title="White"></div>
-                <div class="color-swatch" style="background:#8B7355" title="Brown"></div>
+                <button type="button" class="color-swatch active" style="background:#0D0D0D" title="Black" aria-label="Black" aria-pressed="true"></button>
+                <button type="button" class="color-swatch" style="background:#F5F5F5; border:1px solid #ddd" title="White" aria-label="White" aria-pressed="false"></button>
+                <button type="button" class="color-swatch" style="background:#8B7355" title="Brown" aria-label="Brown" aria-pressed="false"></button>
             </div>
         </div>
 
         <div class="size-options">
             <span class="option-label">Size</span>
             <div class="size-btns">
-                <button class="size-btn">S</button>
-                <button class="size-btn active">M</button>
-                <button class="size-btn">L</button>
-                <button class="size-btn">XL</button>
+                <button class="size-btn" aria-pressed="false">S</button>
+                <button class="size-btn active" aria-pressed="true">M</button>
+                <button class="size-btn" aria-pressed="false">L</button>
+                <button class="size-btn" aria-pressed="false">XL</button>
             </div>
         </div>
 
@@ -84,9 +92,10 @@
             </div>
         </div>
 
-        <button class="add-to-cart" data-name="OVERSIZED TEE" data-price="850">ADD TO CART</button>
+        <button class="add-to-cart" data-id="oversized-tee" data-name="OVERSIZED TEE" data-price="850">ADD TO CART</button>
+        <div id="cartLiveRegion" class="visually-hidden" role="status" aria-live="polite"></div>
         <a href="https://wa.me/201109960670?text=Hello%20AFIFI%2C%20I%20want%20to%20order%20OVERSIZED%20TEE%20-%20850%20EGP" class="whatsapp-order" target="_blank">ORDER ON WHATSAPP</a>
-        <a href="#" class="add-wishlist">&hearts; Add to Wishlist</a>
+        <a href="#" class="add-wishlist" data-id="oversized-tee" aria-label="Add Oversized Tee to wishlist">&hearts; Add to Wishlist</a>
         <div class="purchase-notes">
             <p>Original product selection</p>
             <p>Exchange support within 14 days</p>
@@ -138,21 +147,21 @@
 <section class="related-products">
     <h2>YOU MAY ALSO LIKE</h2>
     <div class="products-grid related-grid">
-        <div class="product-card">
-            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo Tee"></a><button class="wishlist">&hearts;</button></div>
-            <div class="product-info"><h4>LOGO TEE</h4><p>750 EGP</p></div>
+        <div class="product-card" data-id="logo-tee">
+            <div class="product-img"><a href="product.html?id=logo-tee"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo Tee"></a><button class="wishlist" aria-label="Add Logo Tee to wishlist">&hearts;</button></div>
+            <div class="product-info"><h4><a href="product.html?id=logo-tee">LOGO TEE</a></h4><p>750 EGP</p></div>
         </div>
-        <div class="product-card">
-            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Graphic Tee"></a><button class="wishlist">&hearts;</button></div>
-            <div class="product-info"><h4>GRAPHIC TEE</h4><p>900 EGP</p></div>
+        <div class="product-card" data-id="hoodie">
+            <div class="product-img"><a href="product.html?id=hoodie"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Hoodie"></a><button class="wishlist" aria-label="Add Hoodie to wishlist">&hearts;</button></div>
+            <div class="product-info"><h4><a href="product.html?id=hoodie">HOODIE</a></h4><p>1,350 EGP</p></div>
         </div>
-        <div class="product-card">
-            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Minimal Tee"></a><button class="wishlist">&hearts;</button></div>
-            <div class="product-info"><h4>MINIMAL TEE</h4><p>700 EGP</p></div>
+        <div class="product-card" data-id="cargo-pants">
+            <div class="product-img"><a href="product.html?id=cargo-pants"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Cargo Pants"></a><button class="wishlist" aria-label="Add Cargo Pants to wishlist">&hearts;</button></div>
+            <div class="product-info"><h4><a href="product.html?id=cargo-pants">CARGO PANTS</a></h4><p>1,150 EGP</p></div>
         </div>
-        <div class="product-card">
-            <div class="product-img"><a href="product.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Polo Shirt"></a><button class="wishlist">&hearts;</button></div>
-            <div class="product-info"><h4>POLO SHIRT</h4><p>950 EGP</p></div>
+        <div class="product-card" data-id="afifi-cap">
+            <div class="product-img"><a href="product.html?id=afifi-cap"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Afifi Cap"></a><button class="wishlist" aria-label="Add Afifi Cap to wishlist">&hearts;</button></div>
+            <div class="product-info"><h4><a href="product.html?id=afifi-cap">AFIFI CAP</a></h4><p>650 EGP</p></div>
         </div>
     </div>
 </section>
@@ -183,6 +192,5 @@
 </footer>
 
 <script src="brand.js?v=1.5"></script>
-<button class="scroll-top" id="scrollTop" aria-label="Scroll to top">&uarr;</button>
 </body>
 </html>
