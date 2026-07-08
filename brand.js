@@ -267,17 +267,34 @@ async function fetchCatalogProducts() {
     }
 }
 
+function getProductPageBase() {
+    if (window.location.protocol === 'file:') return 'product.html';
+    return /\.html$/i.test(window.location.pathname) ? 'product.html' : 'product';
+}
+
 function getProductPageHref(product) {
     if (!product) return '';
+    const base = getProductPageBase();
     const slug = product.slug;
     if (slug != null && String(slug).trim() !== '') {
-        return `product.html?slug=${encodeURIComponent(slug)}`;
+        return `${base}?slug=${encodeURIComponent(slug)}`;
     }
     const id = product.id;
     if (id != null && id !== '') {
-        return `product.html?id=${encodeURIComponent(id)}`;
+        return `${base}?id=${encodeURIComponent(id)}`;
     }
     return '';
+}
+
+function upgradeStaticProductLinks() {
+    const base = getProductPageBase();
+    if (base === 'product.html') return;
+
+    document.querySelectorAll('a[href^="product.html"]').forEach((anchor) => {
+        const href = anchor.getAttribute('href');
+        if (!href) return;
+        anchor.setAttribute('href', href.replace(/^product\.html/, 'product'));
+    });
 }
 
 function getProductPageIdentifier() {
@@ -357,6 +374,7 @@ async function loadHomepageProducts() {
 }
 
 loadHomepageProducts();
+upgradeStaticProductLinks();
 
 // ========== HERO SLIDESHOW ==========
 const slides = document.querySelectorAll('.slide');
