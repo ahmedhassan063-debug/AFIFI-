@@ -233,6 +233,14 @@ html body {
     height: 100%;
 }
 
+.hero-slides picture {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
 .slide {
     position: absolute;
     top: 0;
@@ -267,6 +275,27 @@ html body {
     z-index: 2;
     text-align: left;
     color: var(--white);
+    transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero.hero-fonts-loading .hero-content {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.hero.hero-fonts-ready .hero-content {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (min-width: 769px) {
+    .hero.hero-fonts-loading .hero-content {
+        transform: translateY(calc(-50% + 10px));
+    }
+
+    .hero.hero-fonts-ready .hero-content {
+        transform: translateY(-50%);
+    }
 }
 
 .hero-content h1 {
@@ -344,6 +373,24 @@ html body {
 .hero-link:hover {
     color: var(--gold);
     border-color: var(--gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-content {
+        transition: none;
+    }
+
+    .hero.hero-fonts-loading .hero-content,
+    .hero.hero-fonts-ready .hero-content {
+        transform: translateY(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 768px) {
+    .hero.hero-fonts-loading .hero-content,
+    .hero.hero-fonts-ready .hero-content {
+        transform: none;
+    }
 }
 
 /* ========== TRUST STRIP ========== */
@@ -670,6 +717,13 @@ html body {
     overflow: hidden;
     border: 1px solid var(--line);
     box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+}
+
+.drop-media picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
 }
 
 .drop-media img {
@@ -2099,6 +2153,14 @@ body.drawer-open {
         text-align: center;
     }
 
+    .hero.hero-fonts-loading .hero-content {
+        transform: translateY(10px);
+    }
+
+    .hero.hero-fonts-ready .hero-content {
+        transform: translateY(0);
+    }
+
     .hero-content h1 {
         font-size: clamp(92px, 25vw, 132px);
         line-height: 0.88;
@@ -2178,6 +2240,7 @@ body.drawer-open {
     }
 
     .drop-media,
+    .drop-media picture,
     .drop-media img {
         min-height: 320px;
     }

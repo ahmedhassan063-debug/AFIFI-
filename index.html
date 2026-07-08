@@ -8,10 +8,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" href="https://fonts.gstatic.com/s/bebasneue/v16/JTUSjIg69CK48gW7PXooxW4.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="preload" href="https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtZ6Ew-.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" as="image" type="image/avif" imagesrcset="images/hero/slide-1-768.avif 768w, images/hero/slide-1-1280.avif 1280w, images/hero/slide-1-1920.avif 1920w" imagesizes="100vw">
+    <link rel="preload" as="image" type="image/webp" imagesrcset="images/hero/slide-1-768.webp 768w, images/hero/slide-1-1280.webp 1280w, images/hero/slide-1-1920.webp 1920w" imagesizes="100vw">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.15">
+    <link rel="stylesheet" href="brand.css?v=1.18">
     <title>AFIFI | CLOTHING BRAND</title>
     <meta name="description" content="AFIFI - premium Egyptian streetwear brand. Shop original tees, hoodies, pants, and accessories built for everyday rotation.">
+    <style id="hero-font-gate">
+        .hero.hero-fonts-loading .hero-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .hero.hero-fonts-ready .hero-content {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
 </head>
 <body>
 
@@ -35,11 +48,23 @@
     </div>
 </nav>
 
-<section class="hero">
+<section class="hero hero-fonts-loading">
     <div class="hero-slides">
-        <img src="images/slide img .png" class="slide active" alt="AFIFI collection look">
-        <img src="images/slide img 2.png" class="slide" alt="AFIFI streetwear look">
-        <img src="images/slide img 3.png" class="slide" alt="AFIFI premium outfit">
+        <picture>
+            <source type="image/avif" sizes="100vw" srcset="images/hero/slide-1-768.avif 768w, images/hero/slide-1-1280.avif 1280w, images/hero/slide-1-1920.avif 1920w">
+            <source type="image/webp" sizes="100vw" srcset="images/hero/slide-1-768.webp 768w, images/hero/slide-1-1280.webp 1280w, images/hero/slide-1-1920.webp 1920w">
+            <img src="images/hero/slide-1-1920.webp" class="slide active" alt="AFIFI collection look" width="1448" height="1086" decoding="async" fetchpriority="high">
+        </picture>
+        <picture data-lazy-slide>
+            <source type="image/avif" sizes="100vw" data-srcset="images/hero/slide-2-768.avif 768w, images/hero/slide-2-1280.avif 1280w, images/hero/slide-2-1920.avif 1920w">
+            <source type="image/webp" sizes="100vw" data-srcset="images/hero/slide-2-768.webp 768w, images/hero/slide-2-1280.webp 1280w, images/hero/slide-2-1920.webp 1920w">
+            <img class="slide" data-src="images/hero/slide-2-1920.webp" alt="AFIFI streetwear look" width="1448" height="1086" decoding="async">
+        </picture>
+        <picture data-lazy-slide>
+            <source type="image/avif" sizes="100vw" data-srcset="images/hero/slide-3-768.avif 768w, images/hero/slide-3-1280.avif 1280w, images/hero/slide-3-1920.avif 1920w">
+            <source type="image/webp" sizes="100vw" data-srcset="images/hero/slide-3-768.webp 768w, images/hero/slide-3-1280.webp 1280w, images/hero/slide-3-1920.webp 1920w">
+            <img class="slide" data-src="images/hero/slide-3-1920.webp" alt="AFIFI premium outfit" width="1448" height="1086" decoding="async">
+        </picture>
     </div>
     <div class="hero-overlay"></div>
     <div class="hero-content">
@@ -169,7 +194,11 @@
         <a href="shop.html" class="story-btn">SHOP THE DROP &rsaquo;</a>
     </div>
     <div class="drop-media">
-        <img src="images/slide img 2.png" alt="AFIFI weekly drop">
+        <picture>
+            <source type="image/avif" sizes="(max-width: 768px) 100vw, 55vw" srcset="images/hero/slide-2-768.avif 768w, images/hero/slide-2-1280.avif 1280w">
+            <source type="image/webp" sizes="(max-width: 768px) 100vw, 55vw" srcset="images/hero/slide-2-768.webp 768w, images/hero/slide-2-1280.webp 1280w">
+            <img src="images/hero/slide-2-1280.webp" alt="AFIFI weekly drop" width="1448" height="1086" loading="lazy" decoding="async">
+        </picture>
     </div>
 </section>
 
@@ -263,6 +292,6 @@
     </div>
 </footer>
 
-<script src="brand.js?v=1.15"></script>
+<script src="brand.js?v=1.17"></script>
 </body>
 </html>
