@@ -1,7 +1,20 @@
 // ========== API CLIENT (Laravel backend integration layer) ==========
-// Step 1 of backend integration: reusable fetch wrapper only.
-// Nothing on the page calls this automatically yet.
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+// Resolves the API base URL without hardcoding an environment:
+// 1) an explicit window.AFIFI_API_BASE_URL override always wins
+// 2) local/dev environments (localhost, 127.0.0.1, file://) use the local API port
+// 3) anything else (real deployment) defaults to same-origin /api
+function resolveApiBaseUrl() {
+    if (window.AFIFI_API_BASE_URL) return window.AFIFI_API_BASE_URL;
+
+    const { protocol, hostname, origin } = window.location;
+    const isLocalHost = protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1';
+
+    if (isLocalHost) return 'http://127.0.0.1:8000/api';
+
+    return `${origin}/api`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 const AUTH_TOKEN_KEY = 'afifiAuthToken';
 
 function getAuthToken() {
@@ -71,10 +84,31 @@ async function apiRequest(endpoint, options = {}) {
     if (!response.ok) {
         const message = (data && data.message) || apiErrorMessageFor(response.status);
         const errors = (data && data.errors) || null;
+
+        if (response.status === 401) {
+            handleUnauthenticatedResponse();
+        }
+
         throw new ApiError(message, response.status, errors);
     }
 
     return data;
+}
+
+// Global 401 handler: session expired / token invalid. Clears local auth
+// state and drops the cart back to its localStorage-only behavior. Wrapped
+// defensively since this can run before later-defined page state exists.
+function handleUnauthenticatedResponse() {
+    console.warn('AFIFI: unauthenticated (401) - clearing local session state.');
+    try {
+        clearAuthToken();
+        localStorage.removeItem('afifiUser');
+        if (typeof apiCartItems !== 'undefined') apiCartItems = [];
+        if (typeof updateAuthUI === 'function') updateAuthUI();
+        if (typeof renderCart === 'function') renderCart();
+    } catch (cleanupError) {
+        console.warn('AFIFI: could not fully clear session state after 401.', cleanupError);
+    }
 }
 
 window.afifiApi = {
@@ -192,6 +226,47 @@ function getProductImage(product) {
     return getProductImages(product)[0];
 }
 
+// Shared, cached, pagination-aware fetch for /catalog/products.
+// Concurrent callers share the same in-flight request; results are cached
+// for the lifetime of the page so homepage/shop/product/cart code doesn't
+// each re-fetch the whole catalog independently.
+let catalogProductsCache = null;
+let catalogProductsPromise = null;
+
+async function fetchCatalogProducts() {
+    if (catalogProductsCache) return catalogProductsCache;
+    if (catalogProductsPromise) return catalogProductsPromise;
+
+    const perPage = 100;
+    const maxPages = 50; // safety cap against a runaway/misbehaving API
+
+    catalogProductsPromise = (async () => {
+        let page = 1;
+        let lastPage = 1;
+        let allProducts = [];
+
+        while (page <= lastPage && page <= maxPages) {
+            const response = await window.afifiApi.apiRequest(`/catalog/products?per_page=${perPage}&page=${page}`);
+            const pageProducts = Array.isArray(response && response.data) ? response.data : [];
+            allProducts = allProducts.concat(pageProducts);
+
+            const metaLastPage = Number(response && response.meta && response.meta.last_page);
+            lastPage = Number.isFinite(metaLastPage) && metaLastPage > 0 ? metaLastPage : 1;
+            page += 1;
+        }
+
+        return allProducts;
+    })();
+
+    try {
+        const products = await catalogProductsPromise;
+        catalogProductsCache = products;
+        return products;
+    } finally {
+        catalogProductsPromise = null;
+    }
+}
+
 function renderProductCard(product) {
     const identifier = product.slug || product.id;
     const name = product.name || 'AFIFI PRODUCT';
@@ -209,7 +284,7 @@ function renderProductCard(product) {
         <div class="product-img">
             ${badge ? `<span class="product-badge">${badge}</span>` : ''}
             <a href="${href}"><img src="${image}" alt="${safeName}" loading="lazy"></a>
-            <button class="wishlist" aria-label="Add ${safeName} to wishlist"></button>
+            <button class="wishlist" aria-label="Add ${safeName} to wishlist">&hearts;</button>
         </div>
         <div class="product-info"><h4><a href="${href}">${safeName}</a></h4><p>${price}</p></div>
     `;
@@ -224,8 +299,7 @@ async function loadHomepageProducts() {
     if (!newArrivalsGrid && !bestSellersTrack) return;
 
     try {
-        const response = await window.afifiApi.apiRequest('/catalog/products');
-        const products = Array.isArray(response && response.data) ? response.data : [];
+        const products = await fetchCatalogProducts();
 
         if (products.length === 0) {
             console.warn('AFIFI: no products returned from API, keeping static homepage content.');
@@ -417,6 +491,25 @@ const shopClearFilters = document.getElementById('shopClearFilters');
 const filterBtns = document.querySelectorAll('.filter-btn');
 let activeFilter = 'all';
 
+// Maps the static filter button values to the real backend category slugs
+// they represent. Static fallback cards already use these exact values as
+// their data-category, so an exact match is always tried first; this map is
+// only consulted for API-rendered cards whose category slug differs
+// (e.g. "t-shirts" covers both "men-t-shirts" and "women-t-shirts").
+const SHOP_FILTER_CATEGORY_MAP = {
+    't-shirts': ['men-t-shirts', 'women-t-shirts'],
+    'hoodies': [], // no backend category yet; matches nothing, shows empty state
+    'pants': ['men-pants', 'women-pants'],
+    'accessories': ['unisex-accessories']
+};
+
+function matchesShopFilter(categorySlug, filterValue) {
+    if (!filterValue || filterValue === 'all') return true;
+    if (categorySlug === filterValue) return true;
+    const mapped = SHOP_FILTER_CATEGORY_MAP[filterValue];
+    return Array.isArray(mapped) && mapped.includes(categorySlug);
+}
+
 function setActiveFilter(filterValue) {
     activeFilter = filterValue || 'all';
     filterBtns.forEach(b => {
@@ -439,7 +532,7 @@ function updateShopGrid() {
 
     let visibleCount = 0;
     sortedCards.forEach(card => {
-        const isVisible = activeFilter === 'all' || card.dataset.category === activeFilter;
+        const isVisible = matchesShopFilter(card.dataset.category, activeFilter);
         card.style.display = isVisible ? '' : 'none';
         if (isVisible) visibleCount += 1;
         shopGrid.appendChild(card);
@@ -478,8 +571,7 @@ async function loadShopProducts() {
     if (!shopGrid) return;
 
     try {
-        const response = await window.afifiApi.apiRequest('/catalog/products');
-        const products = Array.isArray(response && response.data) ? response.data : [];
+        const products = await fetchCatalogProducts();
 
         if (products.length === 0) {
             console.warn('AFIFI: no products returned from API, keeping static shop content.');
@@ -621,8 +713,19 @@ function getSelectedVariant() {
 
 function renderSizeButtons(sizes) {
     const container = document.querySelector('.size-btns');
-    if (!container || !Array.isArray(sizes) || sizes.length === 0) return;
+    if (!container) return;
+    const wrapper = container.closest('.size-options');
 
+    if (!Array.isArray(sizes) || sizes.length === 0) {
+        // Product has no size variants via API - clear the static fallback
+        // buttons instead of leaving stale ones with no data-size-id that
+        // could confuse users or interfere with variant matching.
+        container.innerHTML = '';
+        if (wrapper) wrapper.style.display = 'none';
+        return;
+    }
+
+    if (wrapper) wrapper.style.display = '';
     container.innerHTML = '';
     sizes.forEach((size, index) => {
         const btn = document.createElement('button');
@@ -637,8 +740,19 @@ function renderSizeButtons(sizes) {
 
 function renderColorSwatches(colors) {
     const container = document.querySelector('.color-swatches');
-    if (!container || !Array.isArray(colors) || colors.length === 0) return;
+    if (!container) return;
+    const wrapper = container.closest('.color-options');
 
+    if (!Array.isArray(colors) || colors.length === 0) {
+        // Product has no color variants via API - clear the static fallback
+        // swatches instead of leaving stale ones with no data-color-id that
+        // could confuse users or interfere with variant matching.
+        container.innerHTML = '';
+        if (wrapper) wrapper.style.display = 'none';
+        return;
+    }
+
+    if (wrapper) wrapper.style.display = '';
     container.innerHTML = '';
     colors.forEach((color, index) => {
         const swatch = document.createElement('button');
@@ -704,8 +818,7 @@ async function loadProductDetails() {
     if (!productPageId) return;
 
     try {
-        const response = await window.afifiApi.apiRequest('/catalog/products');
-        const products = Array.isArray(response && response.data) ? response.data : [];
+        const products = await fetchCatalogProducts();
         const matched = findProductBySlugOrId(products, productPageId);
 
         if (!matched) {
@@ -764,6 +877,10 @@ async function loadProductDetails() {
 
         if (addWishlistLink) {
             addWishlistLink.setAttribute('aria-label', `Add ${matched.name} to wishlist`);
+            addWishlistLink.dataset.id = matched.slug || matched.id;
+            if (typeof refreshWishlistActiveState === 'function') {
+                refreshWishlistActiveState(addWishlistLink);
+            }
         }
 
         if (whatsappOrderLink) {
@@ -1165,8 +1282,7 @@ async function getProductLookupMap() {
     if (productLookupMapCache) return productLookupMapCache;
     const map = new Map();
     try {
-        const response = await window.afifiApi.apiRequest('/catalog/products');
-        const products = Array.isArray(response && response.data) ? response.data : [];
+        const products = await fetchCatalogProducts();
         products.forEach(product => {
             const image = getProductImage(product);
             (product.variants || []).forEach(variant => {
@@ -1319,20 +1435,21 @@ function renderCart() {
         itemsWrap.innerHTML = '<p class="cart-empty">Your cart is empty.</p>';
     } else {
         itemsWrap.innerHTML = activeItems.map((item, index) => {
-            const variant = [item.size, item.color].filter(Boolean).join(' / ');
+            const safeName = escapeHtml(item.name);
+            const variant = escapeHtml([item.size, item.color].filter(Boolean).join(' / '));
             const lineTotal = item.price * item.quantity;
             return `
             <div class="cart-item">
                 <div class="cart-item-thumb">
-                    <img src="${item.image || CART_PLACEHOLDER_IMAGE}" alt="${item.name}" onerror="this.src='${CART_PLACEHOLDER_IMAGE}'">
+                    <img src="${item.image || CART_PLACEHOLDER_IMAGE}" alt="${safeName}" onerror="this.src='${CART_PLACEHOLDER_IMAGE}'">
                 </div>
                 <div class="cart-item-info">
-                    <strong>${item.name}</strong>
+                    <strong>${safeName}</strong>
                     ${variant ? `<span class="cart-item-variant">${variant}</span>` : ''}
                     <span>Qty: ${item.quantity} &times; ${item.price} EGP</span>
                     <span class="cart-item-total">Total: ${lineTotal} EGP</span>
                 </div>
-                <button class="cart-remove" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="Remove ${item.name}">&times;</button>
+                <button class="cart-remove" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="Remove ${safeName}">&times;</button>
             </div>
         `;
         }).join('');
@@ -1444,12 +1561,25 @@ function updateWishlistBadge() {
     if (wishlistLink) wishlistLink.classList.toggle('has-items', wishlistItems.length > 0);
 }
 
-function wireWishlistButton(btn) {
+// Recomputes and applies the active/inactive visual state for a wishlist
+// button using whatever identifier it currently resolves to. Safe to call
+// again later (e.g. after loadProductDetails() updates data-id once the real
+// product loads) without adding another click listener.
+function refreshWishlistActiveState(btn) {
     const key = getWishlistKey(btn);
     btn.classList.toggle('active', wishlistItems.includes(key));
+}
 
+function wireWishlistButton(btn) {
+    refreshWishlistActiveState(btn);
+
+    // The key is resolved fresh on every click (not captured once at wire
+    // time) so it always reflects the current data-id - important on
+    // product.html, where the real product id/slug only becomes available
+    // after the async API match resolves, after this button was first wired.
     btn.addEventListener('click', (e) => {
         e.preventDefault();
+        const key = getWishlistKey(btn);
         const idx = wishlistItems.indexOf(key);
         if (idx > -1) {
             wishlistItems.splice(idx, 1);

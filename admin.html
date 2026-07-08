@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin.css?v=1.12">
+    <title>AFIFI | ADMIN DASHBOARD</title>
+</head>
+<body class="admin-body">
+
+<!-- AUTH GATE: shown until the auth guard finishes checking the session and
+     admin permission. No dashboard content renders behind this until then. -->
+<div class="admin-gate" id="adminAuthGate" data-state="checking" role="status" aria-live="polite">
+    <div class="admin-gate-box">
+        <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="AFIFI" class="admin-gate-logo">
+        <div class="admin-gate-spinner" aria-hidden="true"></div>
+        <p id="adminGateMessage">Checking access…</p>
+        <div class="admin-gate-actions" id="adminGateActions" hidden>
+            <button type="button" id="adminGateRetryBtn" hidden>RETRY</button>
+            <a href="index.html" id="adminGateHomeLink" hidden>GO HOME</a>
+        </div>
+    </div>
+</div>
+
+<div class="admin-sidebar-backdrop" id="adminSidebarBackdrop"></div>
+
+<div class="admin-shell" id="adminShell" hidden>
+    <aside class="admin-sidebar" id="adminSidebar">
+        <div class="admin-sidebar-brand">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="AFIFI">
+            <span>ADMIN</span>
+        </div>
+
+        <nav class="admin-nav" aria-label="Admin navigation">
+            <a href="#dashboard" class="admin-nav-link active" data-section="dashboard" aria-current="page">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                Dashboard
+            </a>
+            <a href="#products" class="admin-nav-link" data-section="products">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                Products
+            </a>
+            <a href="#orders" class="admin-nav-link" data-section="orders">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                Orders
+            </a>
+            <a href="#customers" class="admin-nav-link" data-section="customers">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 00-3-3.87"></path><path d="M16 3.13a4 4 0 010 7.75"></path></svg>
+                Customers
+            </a>
+            <a href="#settings" class="admin-nav-link" data-section="settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+                Settings
+            </a>
+            <a href="#roles" class="admin-nav-link" data-section="roles">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg>
+                Roles &amp; Permissions
+            </a>
+            <a href="#coupons" class="admin-nav-link" data-section="coupons">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 01-2.83 0L2.01 12V2h10l8.58 8.58a2 2 0 010 2.83z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                Coupons
+            </a>
+            <a href="#inventory" class="admin-nav-link" data-section="inventory">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"></path><path d="M5 7v13a1 1 0 001 1h12a1 1 0 001-1V7"></path><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                Inventory
+            </a>
+            <a href="#messages" class="admin-nav-link" data-section="messages">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                Messages
+            </a>
+            <a href="#media" class="admin-nav-link" data-section="media">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                Media
+            </a>
+        </nav>
+
+        <button type="button" class="admin-logout-btn" id="adminLogoutBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            LOGOUT
+        </button>
+    </aside>
+
+    <div class="admin-main">
+        <header class="admin-topbar">
+            <button type="button" class="admin-menu-toggle" id="adminMenuToggle" aria-label="Toggle menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <h1 class="admin-page-title" id="adminPageTitle">Dashboard</h1>
+            <div class="admin-topbar-user">
+                <span class="admin-user-name" id="adminUserName">—</span>
+                <span class="admin-user-role" id="adminUserRole"></span>
+            </div>
+        </header>
+
+        <main class="admin-content">
+            <section class="admin-section" id="section-dashboard" data-section-panel="dashboard">
+                <div class="admin-error-banner" id="dashboardError" hidden></div>
+
+                <div class="admin-toolbar">
+                    <label for="dashboardFromDate" class="visually-hidden">From date</label>
+                    <input type="date" id="dashboardFromDate" class="admin-search-input admin-date-input" aria-label="From date">
+                    <label for="dashboardToDate" class="visually-hidden">To date</label>
+                    <input type="date" id="dashboardToDate" class="admin-search-input admin-date-input" aria-label="To date">
+                    <button type="button" class="admin-btn-primary" id="dashboardApplyRangeBtn">Apply Range</button>
+                    <button type="button" class="admin-btn-secondary" id="dashboardResetRangeBtn">Reset</button>
+                    <span class="admin-table-count">Orders, unpaid count, and revenue reflect the selected range. Other cards always show current totals.</span>
+                </div>
+
+                <div class="admin-cards-grid">
+                    <div class="admin-card" data-card="products">
+                        <span class="admin-card-label">Active Products</span>
+                        <span class="admin-card-value is-loading" id="cardProducts">Loading…</span>
+                    </div>
+                    <div class="admin-card" data-card="orders">
+                        <span class="admin-card-label">Pending Orders</span>
+                        <span class="admin-card-value is-loading" id="cardOrders">Loading…</span>
+                    </div>
+                    <div class="admin-card" data-card="customers">
+                        <span class="admin-card-label">Total Users</span>
+                        <span class="admin-card-value is-loading" id="cardCustomers">Loading…</span>
+                    </div>
+                    <div class="admin-card" data-card="revenue">
+                        <span class="admin-card-label">Net Revenue</span>
+                        <span class="admin-card-value is-loading" id="cardRevenue">Loading…</span>
+                        <span class="admin-card-note">Paid payments minus processed refunds</span>
+                    </div>
+                    <div class="admin-card" data-card="unpaid">
+                        <span class="admin-card-label">Unpaid Orders</span>
+                        <span class="admin-card-value is-loading" id="cardUnpaidOrders">Loading…</span>
+                    </div>
+                    <div class="admin-card" data-card="low-stock">
+                        <span class="admin-card-label">Low Stock Variants</span>
+                        <span class="admin-card-value is-loading" id="cardLowStock">Loading…</span>
+                        <span class="admin-card-note">Stock ≤ 5</span>
+                    </div>
+                    <div class="admin-card" data-card="returns">
+                        <span class="admin-card-label">Pending Returns</span>
+                        <span class="admin-card-value is-loading" id="cardPendingReturns">Loading…</span>
+                    </div>
+                    <div class="admin-card" data-card="messages">
+                        <span class="admin-card-label">New Contact Messages</span>
+                        <span class="admin-card-value is-loading" id="cardNewMessages">Loading…</span>
+                    </div>
+                </div>
+
+                <div class="admin-form-section">
+                    <div class="admin-form-section-header">
+                        <h3>Recent Orders</h3>
+                    </div>
+                    <div id="dashboardRecentOrders">
+                        <p class="admin-table-muted">Loading…</p>
+                    </div>
+                </div>
+
+                <div class="admin-form-section">
+                    <div class="admin-form-section-header">
+                        <h3>Low Stock Products</h3>
+                    </div>
+                    <div id="dashboardLowStockList">
+                        <p class="admin-table-muted">Loading…</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-products" data-section-panel="products" hidden>
+                <div class="admin-error-banner" id="productsActionError" hidden></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="productSearchInput" class="admin-search-input" placeholder="Search by name or SKU…" aria-label="Search products by name or SKU" disabled>
+                    <label for="productStatusFilter" class="visually-hidden">Filter by status</label>
+                    <select id="productStatusFilter" class="admin-filter-select" disabled>
+                        <option value="all">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="sold_out">Sold Out</option>
+                    </select>
+                    <span class="admin-table-count" id="productsCount"></span>
+                    <button type="button" class="admin-btn-primary" id="addProductBtn">+ ADD PRODUCT</button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Image</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">SKU</th>
+                                <th scope="col">Price</th>
+                                <th scope="col">Stock</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Featured</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="8">Loading products…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-orders" data-section-panel="orders" hidden>
+                <div class="admin-toolbar">
+                    <input type="search" id="orderSearchInput" class="admin-search-input" placeholder="Search by order #, name, email, or phone…" aria-label="Search orders" disabled>
+                    <label for="orderStatusFilter" class="visually-hidden">Filter by order status</label>
+                    <select id="orderStatusFilter" class="admin-filter-select" disabled>
+                        <option value="">All statuses</option>
+                        <option value="pending_confirmation">Pending Confirmation</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="returned">Returned</option>
+                    </select>
+                    <label for="orderPaymentStatusFilter" class="visually-hidden">Filter by payment status</label>
+                    <select id="orderPaymentStatusFilter" class="admin-filter-select" disabled>
+                        <option value="">All payment statuses</option>
+                        <option value="unpaid">Unpaid</option>
+                        <option value="partially_paid">Partially Paid</option>
+                        <option value="paid">Paid</option>
+                        <option value="partially_refunded">Partially Refunded</option>
+                        <option value="refunded">Refunded</option>
+                    </select>
+                    <span class="admin-table-count" id="ordersCount"></span>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Order #</th>
+                                <th scope="col">Customer</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Total</th>
+                                <th scope="col">Payment</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="7">Loading orders…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-customers" data-section-panel="customers" hidden>
+                <div class="admin-toolbar">
+                    <input type="search" id="customerSearchInput" class="admin-search-input" placeholder="Search by name, email, or phone…" aria-label="Search customers" disabled>
+                    <label for="customerStatusFilter" class="visually-hidden">Filter by status</label>
+                    <select id="customerStatusFilter" class="admin-filter-select" disabled>
+                        <option value="">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <span class="admin-table-count" id="customersCount"></span>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Phone</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Orders</th>
+                                <th scope="col">Joined</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customersTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="8">Loading customers…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-settings" data-section-panel="settings" hidden>
+                <div id="settingsBody">
+                    <p class="admin-table-muted">Loading settings…</p>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-roles" data-section-panel="roles" hidden>
+                <div class="admin-toolbar">
+                    <span class="admin-table-count" id="rolesCount"></span>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Role</th>
+                                <th scope="col">Permissions</th>
+                                <th scope="col">Users</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rolesTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="4">Loading roles…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-coupons" data-section-panel="coupons" hidden>
+                <div class="admin-error-banner" id="couponsActionError" hidden></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="couponSearchInput" class="admin-search-input" placeholder="Search by code…" aria-label="Search coupons by code" disabled>
+                    <label for="couponTypeFilter" class="visually-hidden">Filter by type</label>
+                    <select id="couponTypeFilter" class="admin-filter-select" disabled>
+                        <option value="">All types</option>
+                        <option value="percent">Percent</option>
+                        <option value="fixed">Fixed</option>
+                    </select>
+                    <label for="couponStatusFilter" class="visually-hidden">Filter by status</label>
+                    <select id="couponStatusFilter" class="admin-filter-select" disabled>
+                        <option value="">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                    <span class="admin-table-count" id="couponsCount"></span>
+                    <button type="button" class="admin-btn-primary" id="addCouponBtn">+ ADD COUPON</button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Code</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Value</th>
+                                <th scope="col">Usage</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Expires</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="couponsTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="7">Loading coupons…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-inventory" data-section-panel="inventory" hidden>
+                <div class="admin-error-banner" id="inventoryActionError" hidden></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="inventorySearchInput" class="admin-search-input" placeholder="Search by product or SKU…" aria-label="Search inventory movements by product or SKU" disabled>
+                    <label for="inventoryTypeFilter" class="visually-hidden">Filter by type</label>
+                    <select id="inventoryTypeFilter" class="admin-filter-select" disabled>
+                        <option value="">All types</option>
+                        <option value="adjustment">Adjustment</option>
+                        <option value="restock">Restock</option>
+                        <option value="sale">Sale</option>
+                        <option value="return">Return</option>
+                        <option value="reservation_hold">Reservation Hold</option>
+                        <option value="reservation_release">Reservation Release</option>
+                    </select>
+                    <span class="admin-table-count" id="inventoryCount"></span>
+                    <button type="button" class="admin-btn-primary" id="addInventoryAdjustmentBtn">+ ADJUST STOCK</button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Date</th>
+                                <th scope="col">Product</th>
+                                <th scope="col">Variant / SKU</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Qty Change</th>
+                                <th scope="col">Stock Before</th>
+                                <th scope="col">Stock After</th>
+                                <th scope="col">Note</th>
+                                <th scope="col">By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="9">Loading inventory movements…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-messages" data-section-panel="messages" hidden>
+                <div class="admin-error-banner" id="messagesActionError" hidden></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="messageSearchInput" class="admin-search-input" placeholder="Search by name, email, or subject…" aria-label="Search contact messages" disabled>
+                    <label for="messageStatusFilter" class="visually-hidden">Filter by status</label>
+                    <select id="messageStatusFilter" class="admin-filter-select" disabled>
+                        <option value="">All statuses</option>
+                        <option value="new">New</option>
+                        <option value="read">Read</option>
+                        <option value="replied">Replied</option>
+                    </select>
+                    <span class="admin-table-count" id="messagesCount"></span>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Subject</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messagesTableBody">
+                            <tr class="admin-table-message-row">
+                                <td colspan="6">Loading messages…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="admin-section" id="section-media" data-section-panel="media" hidden>
+                <div class="admin-error-banner" id="mediaActionError" hidden></div>
+                <div class="admin-form-success" id="mediaActionSuccess" hidden></div>
+
+                <div class="admin-toolbar">
+                    <input type="search" id="mediaSearchInput" class="admin-search-input" placeholder="Search by filename or path…" aria-label="Search media library" disabled>
+                    <label for="mediaTypeFilter" class="visually-hidden">Filter by type</label>
+                    <select id="mediaTypeFilter" class="admin-filter-select" disabled>
+                        <option value="">All types</option>
+                        <option value="image">Images</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <span class="admin-table-count" id="mediaCount"></span>
+                </div>
+
+                <p class="admin-field-hint" id="mediaUploadHint">File upload is not available in this phase — the backend registers media metadata only. Existing files seeded or placed under <code>storage/app/public/</code> appear here when registered.</p>
+
+                <div class="admin-media-grid" id="mediaGrid">
+                    <p class="admin-table-muted admin-media-message">Loading media…</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Product create/edit modal. Nested inside #adminShell (rather than a
+         sibling of the auth gate) so it structurally cannot exist in a
+         visible state before the auth guard reveals the dashboard. -->
+    <div class="admin-modal-overlay" id="productFormOverlay" hidden>
+        <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="productFormTitle">
+            <div class="admin-modal-header">
+                <h2 id="productFormTitle">Add Product</h2>
+                <button type="button" class="admin-modal-close" id="productFormCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body">
+                <div class="admin-error-banner" id="productFormError" hidden></div>
+
+                <form id="productForm" novalidate>
+                    <div class="admin-form-grid">
+                        <div class="admin-form-field">
+                            <label for="pfName">Name *</label>
+                            <input type="text" id="pfName" maxlength="255" required>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="pfSlug">Slug *</label>
+                            <input type="text" id="pfSlug" maxlength="255" required>
+                            <span class="admin-field-hint">Auto-filled from name. Must be unique - edit if needed.</span>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="pfCategory">Category *</label>
+                            <select id="pfCategory" required>
+                                <option value="">Loading categories…</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="pfBasePrice">Price (EGP) *</label>
+                            <input type="number" id="pfBasePrice" min="0" step="0.01" required>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="pfComparePrice">Compare-at Price (EGP)</label>
+                            <input type="number" id="pfComparePrice" min="0" step="0.01">
+                        </div>
+                        <div class="admin-form-field admin-form-field-full">
+                            <label for="pfDescription">Description</label>
+                            <textarea id="pfDescription" rows="3" maxlength="5000"></textarea>
+                        </div>
+                        <div class="admin-form-field admin-form-field-full admin-form-checkboxes">
+                            <label class="admin-checkbox"><input type="checkbox" id="pfIsActive" checked> Active</label>
+                            <label class="admin-checkbox"><input type="checkbox" id="pfIsFeaturedDrop"> Featured Drop</label>
+                            <label class="admin-checkbox"><input type="checkbox" id="pfIsNewArrival"> New Arrival</label>
+                            <label class="admin-checkbox"><input type="checkbox" id="pfIsBestSeller"> Best Seller</label>
+                        </div>
+                    </div>
+
+                    <div class="admin-form-section">
+                        <div class="admin-form-section-header">
+                            <h3>Variants</h3>
+                            <button type="button" class="admin-inline-retry-btn" id="pfAddVariantBtn">+ ADD VARIANT</button>
+                        </div>
+                        <p class="admin-field-hint">
+                            TODO(backend): no endpoint exists yet to list Colors/Sizes, so Color ID and Size ID are entered directly instead of a dropdown.
+                        </p>
+                        <div id="pfVariantsList"></div>
+                    </div>
+
+                    <div class="admin-form-section" id="pfImagesSection" hidden>
+                        <h3>Images</h3>
+                        <div class="admin-form-images" id="pfImagesList"></div>
+                        <p class="admin-field-hint">TODO: image upload is not available yet - no working upload endpoint exists on the backend.</p>
+                    </div>
+
+                    <div class="admin-modal-footer">
+                        <button type="button" class="admin-btn-secondary" id="productFormCancelBtn">Cancel</button>
+                        <button type="submit" class="admin-btn-primary" id="productFormSubmitBtn">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order detail modal. Same nesting rationale as the product form modal
+         above: it lives inside #adminShell so it cannot exist visibly before
+         the auth guard passes. -->
+    <div class="admin-modal-overlay" id="orderDetailOverlay" hidden>
+        <div class="admin-modal admin-modal-wide" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
+            <div class="admin-modal-header">
+                <h2 id="orderDetailTitle">Order Details</h2>
+                <button type="button" class="admin-modal-close" id="orderDetailCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body" id="orderDetailBody">
+                <p class="admin-table-muted">Loading order…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer detail modal. Same nesting rationale as above. -->
+    <div class="admin-modal-overlay" id="customerDetailOverlay" hidden>
+        <div class="admin-modal admin-modal-wide" role="dialog" aria-modal="true" aria-labelledby="customerDetailTitle">
+            <div class="admin-modal-header">
+                <h2 id="customerDetailTitle">Customer Details</h2>
+                <button type="button" class="admin-modal-close" id="customerDetailCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body" id="customerDetailBody">
+                <p class="admin-table-muted">Loading customer…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role detail / permissions editor modal. Same nesting rationale as above. -->
+    <div class="admin-modal-overlay" id="roleDetailOverlay" hidden>
+        <div class="admin-modal admin-modal-wide" role="dialog" aria-modal="true" aria-labelledby="roleDetailTitle">
+            <div class="admin-modal-header">
+                <h2 id="roleDetailTitle">Role Details</h2>
+                <button type="button" class="admin-modal-close" id="roleDetailCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body" id="roleDetailBody">
+                <p class="admin-table-muted">Loading role…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coupon create/edit modal. Same nesting rationale as the product form modal. -->
+    <div class="admin-modal-overlay" id="couponFormOverlay" hidden>
+        <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="couponFormTitle">
+            <div class="admin-modal-header">
+                <h2 id="couponFormTitle">Add Coupon</h2>
+                <button type="button" class="admin-modal-close" id="couponFormCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body">
+                <div class="admin-error-banner" id="couponFormError" hidden></div>
+
+                <form id="couponForm" novalidate>
+                    <div class="admin-form-grid">
+                        <div class="admin-form-field">
+                            <label for="cfCode">Code *</label>
+                            <input type="text" id="cfCode" maxlength="50" required>
+                            <span class="admin-field-hint">Must be unique.</span>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfType">Type *</label>
+                            <select id="cfType" required>
+                                <option value="percent">Percent</option>
+                                <option value="fixed">Fixed</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfValue">Value *</label>
+                            <input type="number" id="cfValue" min="0" step="0.01" required>
+                            <span class="admin-field-hint" id="cfValueHint">Percentage off order total (0-100).</span>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfMinOrderTotal">Minimum Order Total (EGP)</label>
+                            <input type="number" id="cfMinOrderTotal" min="0" step="0.01">
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfMaxDiscount">Maximum Discount (EGP)</label>
+                            <input type="number" id="cfMaxDiscount" min="0" step="0.01">
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfUsageLimit">Usage Limit</label>
+                            <input type="number" id="cfUsageLimit" min="0" step="1">
+                            <span class="admin-field-hint">Leave blank for unlimited.</span>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfStartsAt">Starts At</label>
+                            <input type="datetime-local" id="cfStartsAt">
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="cfExpiresAt">Expires At</label>
+                            <input type="datetime-local" id="cfExpiresAt">
+                        </div>
+                        <div class="admin-form-field admin-form-field-full admin-form-checkboxes">
+                            <label class="admin-checkbox"><input type="checkbox" id="cfIsActive" checked> Active</label>
+                        </div>
+                    </div>
+
+                    <div class="admin-modal-footer">
+                        <button type="button" class="admin-btn-secondary" id="couponFormCancelBtn">Cancel</button>
+                        <button type="submit" class="admin-btn-primary" id="couponFormSubmitBtn">Save Coupon</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory adjustment modal. Same nesting rationale as the product form modal.
+         Submits a signed quantity delta through InventoryService (backend), never
+         setting ProductVariant.stock directly. -->
+    <div class="admin-modal-overlay" id="inventoryAdjustmentOverlay" hidden>
+        <div class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="inventoryAdjustmentTitle">
+            <div class="admin-modal-header">
+                <h2 id="inventoryAdjustmentTitle">Adjust Stock</h2>
+                <button type="button" class="admin-modal-close" id="inventoryAdjustmentCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body">
+                <div class="admin-error-banner" id="inventoryAdjustmentFormError" hidden></div>
+
+                <form id="inventoryAdjustmentForm" novalidate>
+                    <div class="admin-form-grid">
+                        <div class="admin-form-field admin-form-field-full">
+                            <label for="iaProduct">Product *</label>
+                            <select id="iaProduct" required>
+                                <option value="">Loading products…</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-field admin-form-field-full">
+                            <label for="iaVariant">Variant / SKU *</label>
+                            <select id="iaVariant" required disabled>
+                                <option value="">Select a product first</option>
+                            </select>
+                            <span class="admin-field-hint" id="iaVariantStockHint"></span>
+                        </div>
+                        <div class="admin-form-field">
+                            <label for="iaQuantityDelta">Quantity Change (+/-) *</label>
+                            <input type="number" id="iaQuantityDelta" step="1" required>
+                            <span class="admin-field-hint">Use a positive number to add stock, negative to remove.</span>
+                        </div>
+                        <div class="admin-form-field admin-form-field-full">
+                            <label for="iaNotes">Reason / Note</label>
+                            <textarea id="iaNotes" rows="3" maxlength="500" placeholder="e.g. Stock count correction, damaged units, supplier restock…"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="admin-modal-footer">
+                        <button type="button" class="admin-btn-secondary" id="inventoryAdjustmentCancelBtn">Cancel</button>
+                        <button type="submit" class="admin-btn-primary" id="inventoryAdjustmentSubmitBtn">Save Adjustment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact message detail modal. Same nesting rationale as above. -->
+    <div class="admin-modal-overlay" id="messageDetailOverlay" hidden>
+        <div class="admin-modal admin-modal-wide" role="dialog" aria-modal="true" aria-labelledby="messageDetailTitle">
+            <div class="admin-modal-header">
+                <h2 id="messageDetailTitle">Message Details</h2>
+                <button type="button" class="admin-modal-close" id="messageDetailCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="admin-modal-body" id="messageDetailBody">
+                <p class="admin-table-muted">Loading message…</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="admin.js?v=1.12"></script>
+</body>
+</html>
