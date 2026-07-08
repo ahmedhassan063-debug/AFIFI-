@@ -1622,6 +1622,7 @@ async function handleLogout() {
     clearStoredUser();
     apiCartItems = [];
     apiWishlistItems = [];
+    cartItems = readGuestCartFromStorage();
     updateAuthUI();
     renderCart();
 }
@@ -1799,7 +1800,7 @@ function createAuthModal() {
         btn.textContent = isLoading ? 'PLEASE WAIT...' : btn.dataset.originalText;
     }
 
-    function handleAuthSuccess(data) {
+    async function handleAuthSuccess(data) {
         if (data && data.token) {
             window.afifiApi.setAuthToken(data.token);
         }
@@ -1808,7 +1809,13 @@ function createAuthModal() {
         }
         showMessage('Success! Welcome to AFIFI.', 'success');
         updateAuthUI();
-        loadApiCart();
+        try {
+            await mergeGuestCartIntoApiCart();
+        } catch (error) {
+            console.warn('AFIFI: guest cart merge failed after auth.', error);
+            showCartMergeWarning('Some cart items may not have synced. They remain saved on this device.');
+            await loadApiCart();
+        }
         loadApiWishlist();
         setTimeout(closeModal, 900);
     }
@@ -1959,14 +1966,18 @@ function normalizeApiCartItem(item, lookupMap) {
     };
 }
 
+async function refreshApiCartFromServer() {
+    const response = await window.afifiApi.apiRequest('/cart');
+    const cart = response && response.data;
+    const items = (cart && cart.items) || [];
+    const lookupMap = await getProductLookupMap();
+    apiCartItems = items.map(item => normalizeApiCartItem(item, lookupMap));
+}
+
 async function loadApiCart() {
     if (!isLoggedIn()) return;
     try {
-        const response = await window.afifiApi.apiRequest('/cart');
-        const cart = response && response.data;
-        const items = (cart && cart.items) || [];
-        const lookupMap = await getProductLookupMap();
-        apiCartItems = items.map(item => normalizeApiCartItem(item, lookupMap));
+        await refreshApiCartFromServer();
     } catch (error) {
         console.warn('AFIFI: failed to load cart from server.', error);
         apiCartItems = [];
@@ -1974,18 +1985,221 @@ async function loadApiCart() {
     renderCart();
 }
 
+async function postApiCartItem(variantId, quantity) {
+    await window.afifiApi.apiRequest('/cart/items', {
+        method: 'POST',
+        body: {
+            product_variant_id: Number(variantId),
+            quantity: Number(quantity) || 1
+        }
+    });
+}
+
+async function putApiCartItemQuantity(cartItemId, quantity) {
+    await window.afifiApi.apiRequest(`/cart/items/${cartItemId}`, {
+        method: 'PUT',
+        body: { quantity: Number(quantity) || 1 }
+    });
+}
+
+function readGuestCartFromStorage() {
+    try {
+        const raw = localStorage.getItem('afifiCart');
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeCartItem).filter(item => (Number(item.quantity) || 0) > 0);
+    } catch (error) {
+        console.warn('AFIFI: could not parse guest cart from localStorage.', error);
+        return [];
+    }
+}
+
+function clearGuestCartStorage() {
+    cartItems = [];
+    try {
+        localStorage.removeItem('afifiCart');
+    } catch (error) {
+        console.warn('AFIFI: could not clear guest cart from localStorage.', error);
+    }
+}
+
+function getCartMergeKey(item) {
+    if (item && item.variantId) return `variant:${String(item.variantId)}`;
+    const size = (item && item.size) || '';
+    const color = (item && item.color) || '';
+    const productId = (item && item.productId) || '';
+    return `product:${productId}|${size}|${color}`;
+}
+
+function findApiCartItemByGuestItem(guestItem) {
+    if (guestItem.variantId) {
+        return apiCartItems.find(item => String(item.variantId) === String(guestItem.variantId)) || null;
+    }
+    return apiCartItems.find(item =>
+        String(item.productId) === String(guestItem.productId) &&
+        (item.size || '') === (guestItem.size || '') &&
+        (item.color || '') === (guestItem.color || '')
+    ) || null;
+}
+
+function splitGuestQuantityForMerge(guestItem, existingApiItem) {
+    const guestQty = Math.max(1, Number(guestItem.quantity) || 1);
+    const existingQty = existingApiItem ? Math.max(0, Number(existingApiItem.quantity) || 0) : 0;
+    const maxQty = getCartItemMaxQuantity(existingApiItem || guestItem);
+
+    if (existingApiItem) {
+        const targetQty = Math.min(maxQty, existingQty + guestQty);
+        const addable = Math.max(0, targetQty - existingQty);
+        const leftover = guestQty - addable;
+        return { addable, leftover, targetQty };
+    }
+
+    const addable = Math.min(maxQty, guestQty);
+    const leftover = guestQty - addable;
+    return { addable, leftover, targetQty: addable };
+}
+
+function showCartMergeWarning(message) {
+    if (!message) return;
+    const panel = document.querySelector('.cart-panel');
+    if (!panel) {
+        console.warn('AFIFI cart merge:', message);
+        return;
+    }
+    let banner = panel.querySelector('.cart-merge-warning');
+    if (!banner) {
+        banner = document.createElement('p');
+        banner.className = 'cart-merge-warning';
+        banner.setAttribute('role', 'status');
+        const itemsWrap = panel.querySelector('.cart-items');
+        if (itemsWrap) panel.insertBefore(banner, itemsWrap);
+        else panel.appendChild(banner);
+    }
+    banner.textContent = message;
+    banner.hidden = false;
+}
+
+function consolidateGuestCartItems(guestItems) {
+    const byKey = new Map();
+    guestItems.forEach(item => {
+        const key = getCartMergeKey(item);
+        const existing = byKey.get(key);
+        if (existing) {
+            existing.quantity = (Number(existing.quantity) || 0) + (Number(item.quantity) || 1);
+        } else {
+            byKey.set(key, { ...item });
+        }
+    });
+    return Array.from(byKey.values());
+}
+
+async function mergeGuestCartIntoApiCart() {
+    if (!isLoggedIn()) return { mergedCount: 0, failedItems: [] };
+
+    const guestItems = readGuestCartFromStorage();
+    if (guestItems.length === 0) {
+        await loadApiCart();
+        return { mergedCount: 0, failedItems: [] };
+    }
+
+    try {
+        await refreshApiCartFromServer();
+    } catch (error) {
+        console.warn('AFIFI: could not load account cart for guest merge.', error);
+        showCartMergeWarning('Could not load your account cart. Guest cart items were kept on this device.');
+        renderCart();
+        return { mergedCount: 0, failedItems: guestItems };
+    }
+
+    const failedItems = [];
+    let mergedCount = 0;
+    const consolidatedGuestItems = consolidateGuestCartItems(guestItems);
+
+    for (const guestItem of consolidatedGuestItems) {
+        if (!guestItem.variantId) {
+            failedItems.push({
+                ...guestItem,
+                mergeError: 'Missing product option. Open the product and add it again while logged in.'
+            });
+            continue;
+        }
+
+        const variantId = Number(guestItem.variantId);
+        if (!Number.isFinite(variantId) || variantId <= 0) {
+            failedItems.push({ ...guestItem, mergeError: 'Invalid product option.' });
+            continue;
+        }
+
+        const existingApiItem = findApiCartItemByGuestItem(guestItem);
+        const { addable, leftover, targetQty } = splitGuestQuantityForMerge(guestItem, existingApiItem);
+
+        if (addable <= 0) {
+            if (leftover > 0) {
+                failedItems.push({
+                    ...guestItem,
+                    quantity: leftover,
+                    mergeError: 'Quantity limit reached for this item.'
+                });
+            }
+            continue;
+        }
+
+        try {
+            if (existingApiItem && existingApiItem.apiCartItemId) {
+                await putApiCartItemQuantity(existingApiItem.apiCartItemId, targetQty);
+                existingApiItem.quantity = targetQty;
+            } else {
+                await postApiCartItem(variantId, addable);
+                await refreshApiCartFromServer();
+            }
+            mergedCount += 1;
+            if (leftover > 0) {
+                failedItems.push({
+                    ...guestItem,
+                    quantity: leftover,
+                    mergeError: 'Quantity limit reached for this item.'
+                });
+            }
+        } catch (error) {
+            console.warn('AFIFI: failed to merge guest cart item.', guestItem, error);
+            failedItems.push({
+                ...guestItem,
+                mergeError: getAuthErrorMessage(error)
+            });
+        }
+    }
+
+    try {
+        await refreshApiCartFromServer();
+    } catch (error) {
+        console.warn('AFIFI: failed to refresh cart after guest merge.', error);
+    }
+
+    if (failedItems.length === 0) {
+        clearGuestCartStorage();
+    } else {
+        cartItems = failedItems.map(item => {
+            const normalized = normalizeCartItem(item);
+            return normalized;
+        });
+        saveCart();
+        const failedQty = failedItems.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+        showCartMergeWarning(
+            `${failedQty} item(s) could not be added to your account cart and remain saved on this device.`
+        );
+    }
+
+    renderCart();
+    return { mergedCount, failedItems };
+}
+
 async function addApiCartItem(details) {
     if (!details.variantId) {
         return { success: false, message: 'Please select a product option first.' };
     }
     try {
-        await window.afifiApi.apiRequest('/cart/items', {
-            method: 'POST',
-            body: {
-                product_variant_id: Number(details.variantId),
-                quantity: Number(details.quantity) || 1
-            }
-        });
+        await postApiCartItem(details.variantId, details.quantity);
         await loadApiCart();
         return { success: true };
     } catch (error) {
@@ -1996,10 +2210,7 @@ async function addApiCartItem(details) {
 
 async function updateApiCartItemQuantity(cartItemId, quantity) {
     try {
-        await window.afifiApi.apiRequest(`/cart/items/${cartItemId}`, {
-            method: 'PUT',
-            body: { quantity: Number(quantity) || 1 }
-        });
+        await putApiCartItemQuantity(cartItemId, quantity);
         await loadApiCart();
         return { success: true };
     } catch (error) {
@@ -2246,7 +2457,7 @@ function createCartPanel() {
 createCartPanel();
 
 if (isLoggedIn()) {
-    loadApiCart();
+    void mergeGuestCartIntoApiCart();
 }
 
 const whatsappFloat = document.createElement('a');
