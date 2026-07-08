@@ -693,7 +693,8 @@ if (addToCartBtn) {
             quantity: Number(qtySelector ? qtySelector.textContent : 1) || 1,
             size: activeSize ? activeSize.textContent.trim() : '',
             color: activeColor ? (activeColor.getAttribute('title') || '') : '',
-            image: mainImg ? mainImg.src : ''
+            image: mainImg ? mainImg.src : '',
+            stock: selectedVariant && selectedVariant.stock != null ? Number(selectedVariant.stock) : null
         });
 
         if (result && result.success === false) {
@@ -1345,9 +1346,12 @@ const CART_PLACEHOLDER_IMAGE = 'images/AFIFI_BRANDS_VECTOR.svg';
 // Normalizes both legacy items ({ name, price, qty }) and richer items
 // ({ id, productId, variantId, name, price, quantity, size, color, image })
 // into one consistent shape so older saved carts keep working.
+const CART_MAX_QUANTITY = 10;
+
 function normalizeCartItem(raw) {
     const size = raw.size || '';
     const color = raw.color || '';
+    const stockValue = raw.stock;
     return {
         id: raw.id || raw.variantId || `${raw.productId || raw.name}-${size}-${color}`,
         productId: raw.productId || raw.name || '',
@@ -1357,8 +1361,17 @@ function normalizeCartItem(raw) {
         quantity: Number(raw.quantity ?? raw.qty ?? 1) || 1,
         size,
         color,
-        image: raw.image || ''
+        image: raw.image || '',
+        stock: stockValue == null || stockValue === '' ? null : Number(stockValue)
     };
+}
+
+function getCartItemMaxQuantity(item) {
+    const stock = Number(item && item.stock);
+    if (Number.isFinite(stock) && stock > 0) {
+        return Math.min(stock, CART_MAX_QUANTITY);
+    }
+    return CART_MAX_QUANTITY;
 }
 
 let cartItems = (JSON.parse(localStorage.getItem('afifiCart') || '[]')).map(normalizeCartItem);
@@ -1385,7 +1398,8 @@ async function getProductLookupMap() {
                     name: product.name,
                     image,
                     size: variant.size ? variant.size.name : '',
-                    color: variant.color ? variant.color.name : ''
+                    color: variant.color ? variant.color.name : '',
+                    stock: variant.stock
                 });
             });
         });
@@ -1409,7 +1423,8 @@ function normalizeApiCartItem(item, lookupMap) {
         quantity: Number(item.quantity) || 1,
         size: (details && details.size) || '',
         color: (details && details.color) || '',
-        image: (details && details.image) || ''
+        image: (details && details.image) || '',
+        stock: variant.stock != null ? Number(variant.stock) : ((details && details.stock != null) ? Number(details.stock) : null)
     };
 }
 
@@ -1448,8 +1463,6 @@ async function addApiCartItem(details) {
     }
 }
 
-// Ready for future quantity-stepper UI; not wired to a control yet to avoid
-// changing the existing cart drawer UI.
 async function updateApiCartItemQuantity(cartItemId, quantity) {
     try {
         await window.afifiApi.apiRequest(`/cart/items/${cartItemId}`, {
@@ -1486,6 +1499,35 @@ async function clearApiCart() {
 
 function saveCart() {
     localStorage.setItem('afifiCart', JSON.stringify(cartItems));
+}
+
+async function changeCartItemQuantity(item, index, delta) {
+    const newQuantity = item.quantity + delta;
+
+    if (newQuantity < 1) {
+        if (isLoggedIn() && item.apiCartItemId) {
+            await removeApiCartItem(item.apiCartItemId);
+        } else {
+            cartItems.splice(index, 1);
+            saveCart();
+            renderCart();
+        }
+        return;
+    }
+
+    const maxQuantity = getCartItemMaxQuantity(item);
+    if (newQuantity > maxQuantity) return;
+
+    if (isLoggedIn() && item.apiCartItemId) {
+        await updateApiCartItemQuantity(item.apiCartItemId, newQuantity);
+        return;
+    }
+
+    if (cartItems[index]) {
+        cartItems[index].quantity = newQuantity;
+        saveCart();
+        renderCart();
+    }
 }
 
 async function addCartItem(details) {
@@ -1533,6 +1575,11 @@ function renderCart() {
             const safeName = escapeHtml(item.name);
             const variant = escapeHtml([item.size, item.color].filter(Boolean).join(' / '));
             const lineTotal = item.price * item.quantity;
+            const maxQuantity = getCartItemMaxQuantity(item);
+            const minusLabel = item.quantity <= 1
+                ? `Remove ${item.name} from cart`
+                : `Decrease quantity of ${item.name}`;
+            const plusDisabled = item.quantity >= maxQuantity;
             return `
             <div class="cart-item">
                 <div class="cart-item-thumb">
@@ -1541,10 +1588,17 @@ function renderCart() {
                 <div class="cart-item-info">
                     <strong>${safeName}</strong>
                     ${variant ? `<span class="cart-item-variant">${variant}</span>` : ''}
-                    <span>Qty: ${item.quantity} &times; ${item.price} EGP</span>
-                    <span class="cart-item-total">Total: ${lineTotal} EGP</span>
+                    <div class="cart-item-qty-row">
+                        <span class="cart-item-unit-price">${formatPrice(item.price)} each</span>
+                        <div class="cart-qty-controls" role="group" aria-label="Quantity for ${safeName}">
+                            <button type="button" class="cart-qty-btn cart-qty-minus" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="${escapeHtml(minusLabel)}">&minus;</button>
+                            <span class="cart-qty-value" aria-live="polite">${item.quantity}</span>
+                            <button type="button" class="cart-qty-btn cart-qty-plus" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="Increase quantity of ${safeName}"${plusDisabled ? ' disabled' : ''}>+</button>
+                        </div>
+                    </div>
+                    <span class="cart-item-total">Total: ${formatPrice(lineTotal)}</span>
                 </div>
-                <button class="cart-remove" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="Remove ${safeName}">&times;</button>
+                <button type="button" class="cart-remove" data-index="${index}" data-cart-item-id="${item.apiCartItemId || ''}" aria-label="Remove ${safeName}">&times;</button>
             </div>
         `;
         }).join('');
@@ -1582,18 +1636,32 @@ function createCartPanel() {
     document.body.appendChild(panel);
 
     panel.querySelector('.cart-close').addEventListener('click', () => panel.classList.remove('open'));
-    panel.addEventListener('click', (event) => {
+    panel.addEventListener('click', async (event) => {
         const removeBtn = event.target.closest('.cart-remove');
-        if (!removeBtn) return;
-        if (isLoggedIn()) {
-            if (removeBtn.dataset.cartItemId) {
-                removeApiCartItem(removeBtn.dataset.cartItemId);
+        if (removeBtn) {
+            if (isLoggedIn()) {
+                if (removeBtn.dataset.cartItemId) {
+                    await removeApiCartItem(removeBtn.dataset.cartItemId);
+                }
+            } else {
+                cartItems.splice(Number(removeBtn.dataset.index), 1);
+                saveCart();
+                renderCart();
             }
-        } else {
-            cartItems.splice(Number(removeBtn.dataset.index), 1);
-            saveCart();
-            renderCart();
+            return;
         }
+
+        const minusBtn = event.target.closest('.cart-qty-minus');
+        const plusBtn = event.target.closest('.cart-qty-plus');
+        if (!minusBtn && !plusBtn) return;
+
+        const controlBtn = minusBtn || plusBtn;
+        const index = Number(controlBtn.dataset.index);
+        const activeItems = getActiveCartItems();
+        const item = activeItems[index];
+        if (!item) return;
+
+        await changeCartItemQuantity(item, index, minusBtn ? -1 : 1);
     });
 
     document.querySelectorAll('img[alt="Cart"]').forEach(icon => {
