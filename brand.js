@@ -139,7 +139,7 @@ async function loadPublicSettings() {
 
         window.afifiSettings = settings;
 
-        if (settings['seo.default_title']) {
+        if (settings['seo.default_title'] && !document.querySelector('.product-details-info')) {
             document.title = settings['seo.default_title'];
         }
 
@@ -866,10 +866,17 @@ function showProductNotFoundState(message) {
     const info = document.querySelector('.product-details-info');
     if (!info) return;
 
+    const detail = document.getElementById('productDetail');
+    if (detail) detail.classList.remove('is-loading');
+
     document.title = 'AFIFI | Product Not Found';
 
-    const breadcrumbCurrent = document.querySelector('.breadcrumbs-section > span:last-of-type');
+    const breadcrumbCurrent = document.getElementById('productBreadcrumbCurrent')
+        || document.querySelector('.breadcrumbs-section > span:last-of-type');
     if (breadcrumbCurrent) breadcrumbCurrent.textContent = 'Product not found';
+
+    const loadingMsg = info.querySelector('.product-loading-message');
+    if (loadingMsg) loadingMsg.remove();
 
     const h1 = info.querySelector('h1');
     if (h1) h1.textContent = 'Product not found';
@@ -894,12 +901,63 @@ function showProductNotFoundState(message) {
     const related = document.querySelector('.related-products');
     if (related) related.style.display = 'none';
 
+    const skeleton = document.querySelector('.product-image-skeleton');
+    if (skeleton) skeleton.hidden = true;
+
     if (!info.querySelector('.product-back-link')) {
         const backLink = document.createElement('a');
         backLink.className = 'story-btn product-back-link';
         backLink.href = 'shop.html';
         backLink.textContent = 'BACK TO SHOP \u203a';
         info.appendChild(backLink);
+    }
+}
+
+function revealProductDetailUI(matched) {
+    const detail = document.getElementById('productDetail');
+    if (detail) detail.classList.remove('is-loading');
+
+    const loadingMsg = document.querySelector('.product-loading-message');
+    if (loadingMsg) loadingMsg.remove();
+
+    const breadcrumbCurrent = document.getElementById('productBreadcrumbCurrent');
+    if (breadcrumbCurrent) breadcrumbCurrent.textContent = matched.name;
+
+    const mainImg = document.getElementById('mainProductImg');
+    const skeleton = document.querySelector('.product-image-skeleton');
+    if (mainImg) {
+        mainImg.hidden = false;
+        mainImg.alt = matched.name || 'Product image';
+    }
+    if (skeleton) skeleton.hidden = true;
+
+    if (addToCartBtn) addToCartBtn.disabled = false;
+
+    const whatsappOrderLink = document.querySelector('.whatsapp-order');
+    const addWishlistLink = document.querySelector('.add-wishlist');
+    if (whatsappOrderLink) whatsappOrderLink.hidden = false;
+    if (addWishlistLink) addWishlistLink.hidden = false;
+
+    const related = document.querySelector('.related-products');
+    if (related) related.style.display = '';
+}
+
+function updateProductDescriptionTab(matched) {
+    const descTab = document.getElementById('desc');
+    if (!descTab) return;
+
+    const text = matched.description || matched.short_description || '';
+    descTab.innerHTML = '';
+    if (text) {
+        text.split(/\n{2,}/).map(part => part.trim()).filter(Boolean).forEach(part => {
+            const paragraph = document.createElement('p');
+            paragraph.textContent = part;
+            descTab.appendChild(paragraph);
+        });
+    } else {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = 'Product details will be available soon.';
+        descTab.appendChild(paragraph);
     }
 }
 
@@ -1003,6 +1061,8 @@ async function loadProductDetails() {
         renderSizeButtons(sizes);
         renderColorSwatches(colors);
         renderRelatedProducts(matched, products);
+        revealProductDetailUI(matched);
+        updateProductDescriptionTab(matched);
     } catch (error) {
         console.warn('AFIFI: could not load product details from API.', error);
         showProductNotFoundState('Unable to load product details right now. Please try again later.');

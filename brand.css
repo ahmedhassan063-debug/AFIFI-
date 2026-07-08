@@ -1030,6 +1030,73 @@ html body {
 /* ========== PRODUCT DETAIL ========== */
 
 .product-detail { display: flex; gap: 50px; padding: 30px var(--padding-page) var(--padding-section); }
+
+.product-detail.is-loading .color-options,
+.product-detail.is-loading .size-options,
+.product-detail.is-loading .quantity-selector,
+.product-detail.is-loading .add-to-cart,
+.product-detail.is-loading .whatsapp-order,
+.product-detail.is-loading .add-wishlist,
+.product-detail.is-loading .purchase-notes {
+    display: none;
+}
+
+.product-detail.is-loading ~ .product-tabs,
+.product-detail.is-loading ~ .related-products {
+    visibility: hidden;
+    height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.product-loading-message {
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    color: var(--grey);
+    margin: 0 0 12px 0;
+    letter-spacing: 0.5px;
+}
+
+.product-image-skeleton {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: var(--radius);
+    background: linear-gradient(90deg, #ece8e1 25%, #f6f3ee 50%, #ece8e1 75%);
+    background-size: 200% 100%;
+    animation: product-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.product-detail.is-loading .product-price:empty,
+.product-detail.is-loading .product-desc:empty {
+    display: block;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #ece8e1 25%, #f6f3ee 50%, #ece8e1 75%);
+    background-size: 200% 100%;
+    animation: product-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.product-detail.is-loading .product-price:empty {
+    width: 120px;
+    height: 18px;
+}
+
+.product-detail.is-loading .product-desc:empty {
+    width: 85%;
+    height: 48px;
+}
+
+.product-tab-loading {
+    color: var(--grey);
+    font-family: var(--font-body), sans-serif;
+}
+
+@keyframes product-skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 .product-gallery { flex: 1; max-width: 500px; }
 .main-image { background: #f0f0f0; border-radius: var(--radius); overflow: hidden; margin-bottom: 15px; }
 .main-image img { width: 100%; display: block; }
