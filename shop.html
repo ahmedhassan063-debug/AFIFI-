@@ -13,9 +13,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.18">
+    <link rel="stylesheet" href="brand.css?v=1.20">
     <title>AFIFI | SHOP</title>
     <meta name="description" content="Shop the full AFIFI collection - premium streetwear tees, hoodies, pants, and accessories from an original Egyptian brand.">
+    <style id="shop-font-gate">
+        .page-header.shop-fonts-loading h1 {
+            opacity: 0;
+        }
+        .page-header.shop-fonts-ready h1 {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body>
 
@@ -39,7 +47,7 @@
     </div>
 </nav>
 
-<section class="page-header">
+<section class="page-header shop-fonts-loading" id="shopPageHeader">
     <h1>OUR COLLECTION</h1>
     <div class="breadcrumbs">
         <a href="index.html">Home</a> <span>&rsaquo;</span> <span>Shop</span>
@@ -48,117 +56,45 @@
 
 <section class="shop-content">
     <aside class="shop-sidebar">
-        <div class="filter-group">
-            <h3>Search</h3>
-            <form id="shopSearchForm" class="shop-search-form" role="search">
-                <label for="shopSearchInput" class="visually-hidden">Search products</label>
-                <input type="search" id="shopSearchInput" class="shop-search-input" placeholder="Search products…" autocomplete="off">
-            </form>
+        <div class="shop-controls">
+            <div class="filter-group filter-group-search">
+                <h3>Search</h3>
+                <form id="shopSearchForm" class="shop-search-form" role="search">
+                    <label for="shopSearchInput" class="visually-hidden">Search products</label>
+                    <input type="search" id="shopSearchInput" class="shop-search-input" placeholder="Search products…" autocomplete="off">
+                </form>
+            </div>
+            <div class="filter-group filter-group-categories">
+                <h3>Categories</h3>
+                <div class="filter-btn-list" role="group" aria-label="Product categories">
+                    <button class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
+                    <button class="filter-btn" data-filter="t-shirts" aria-pressed="false">T-Shirts</button>
+                    <button class="filter-btn" data-filter="hoodies" aria-pressed="false">Hoodies</button>
+                    <button class="filter-btn" data-filter="pants" aria-pressed="false">Pants</button>
+                    <button class="filter-btn" data-filter="accessories" aria-pressed="false">Accessories</button>
+                </div>
+            </div>
+            <div class="filter-group filter-group-sort">
+                <h3>Sort By</h3>
+                <select class="sort-select" aria-label="Sort products">
+                    <option value="newest">Newest</option>
+                    <option value="low-high">Price: Low to High</option>
+                    <option value="high-low">Price: High to Low</option>
+                </select>
+            </div>
         </div>
-        <div class="filter-group">
-            <h3>Categories</h3>
-            <button class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
-            <button class="filter-btn" data-filter="t-shirts" aria-pressed="false">T-Shirts</button>
-            <button class="filter-btn" data-filter="hoodies" aria-pressed="false">Hoodies</button>
-            <button class="filter-btn" data-filter="pants" aria-pressed="false">Pants</button>
-            <button class="filter-btn" data-filter="accessories" aria-pressed="false">Accessories</button>
-        </div>
-        <div class="filter-group">
-            <h3>Sort By</h3>
-            <select class="sort-select" aria-label="Sort products">
-                <option value="newest">Newest</option>
-                <option value="low-high">Price: Low to High</option>
-                <option value="high-low">Price: High to Low</option>
-            </select>
-        </div>
-        <p class="shop-count" id="shopCount">12 products</p>
+        <p class="shop-count" id="shopCount" aria-live="polite">Loading products...</p>
     </aside>
 
-    <div class="shop-grid">
-        <div class="product-card" data-category="t-shirts" data-price="850" data-order="1" data-name="OVERSIZED TEE" data-id="oversized-tee">
-            <div class="product-img">
-                <a href="product.html?id=oversized-tee"><img src="images/Brand-logo.jpg" alt="Oversized Tee" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Oversized Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=oversized-tee">OVERSIZED TEE</a></h4><p>850 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="t-shirts" data-price="750" data-order="2" data-name="LOGO TEE" data-id="logo-tee">
-            <div class="product-img">
-                <a href="product.html?id=logo-tee"><img src="images/Brand-logo.jpg" alt="Logo Tee" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Logo Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=logo-tee">LOGO TEE</a></h4><p>750 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="hoodies" data-price="1350" data-order="3" data-name="HOODIE" data-id="hoodie">
-            <div class="product-img">
-                <a href="product.html?id=hoodie"><img src="images/Brand-logo.jpg" alt="Hoodie" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Hoodie to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=hoodie">HOODIE</a></h4><p>1,350 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="hoodies" data-price="1250" data-order="4" data-name="ESSENTIAL HOODIE" data-id="essential-hoodie">
-            <div class="product-img">
-                <a href="product.html?id=essential-hoodie"><img src="images/Brand-logo.jpg" alt="Essential Hoodie" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Essential Hoodie to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=essential-hoodie">ESSENTIAL HOODIE</a></h4><p>1,250 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="pants" data-price="1150" data-order="5" data-name="CARGO PANTS" data-id="cargo-pants">
-            <div class="product-img">
-                <a href="product.html?id=cargo-pants"><img src="images/Brand-logo.jpg" alt="Cargo Pants" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Cargo Pants to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=cargo-pants">CARGO PANTS</a></h4><p>1,150 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="accessories" data-price="650" data-order="6" data-name="AFIFI CAP" data-id="afifi-cap">
-            <div class="product-img">
-                <a href="product.html?id=afifi-cap"><img src="images/Brand-logo.jpg" alt="Afifi Cap" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Afifi Cap to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=afifi-cap">AFIFI CAP</a></h4><p>650 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="t-shirts" data-price="700" data-order="7" data-name="MINIMAL TEE" data-id="minimal-tee">
-            <div class="product-img">
-                <a href="product.html?id=minimal-tee"><img src="images/Brand-logo.jpg" alt="Minimal Tee" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Minimal Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=minimal-tee">MINIMAL TEE</a></h4><p>700 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="t-shirts" data-price="900" data-order="8" data-name="GRAPHIC TEE" data-id="graphic-tee">
-            <div class="product-img">
-                <a href="product.html?id=graphic-tee"><img src="images/Brand-logo.jpg" alt="Graphic Tee" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Graphic Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=graphic-tee">GRAPHIC TEE</a></h4><p>900 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="pants" data-price="1100" data-order="9" data-name="JOGGER PANTS" data-id="jogger-pants">
-            <div class="product-img">
-                <a href="product.html?id=jogger-pants"><img src="images/Brand-logo.jpg" alt="Jogger Pants" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Jogger Pants to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=jogger-pants">JOGGER PANTS</a></h4><p>1,100 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="hoodies" data-price="1800" data-order="10" data-name="BOMBER JACKET" data-id="bomber-jacket">
-            <div class="product-img">
-                <a href="product.html?id=bomber-jacket"><img src="images/Brand-logo.jpg" alt="Bomber Jacket" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Bomber Jacket to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=bomber-jacket">BOMBER JACKET</a></h4><p>1,800 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="t-shirts" data-price="950" data-order="11" data-name="POLO SHIRT" data-id="polo-shirt">
-            <div class="product-img">
-                <a href="product.html?id=polo-shirt"><img src="images/Brand-logo.jpg" alt="Polo Shirt" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Polo Shirt to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=polo-shirt">POLO SHIRT</a></h4><p>950 EGP</p></div>
-        </div>
-        <div class="product-card" data-category="accessories" data-price="550" data-order="12" data-name="BUCKET HAT" data-id="bucket-hat">
-            <div class="product-img">
-                <a href="product.html?id=bucket-hat"><img src="images/Brand-logo.jpg" alt="Bucket Hat" loading="lazy"></a>
-                <button class="wishlist" aria-label="Add Bucket Hat to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4><a href="product.html?id=bucket-hat">BUCKET HAT</a></h4><p>550 EGP</p></div>
-        </div>
+    <div class="shop-grid is-loading" id="shopGrid" aria-busy="true">
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
 
         <div class="shop-empty" id="shopEmpty" hidden>
             <p class="shop-empty-title">No products found.</p>
@@ -191,6 +127,6 @@
     </div>
 </footer>
 
-<script src="brand.js?v=1.17"></script>
+<script src="brand.js?v=1.18"></script>
 </body>
 </html>
