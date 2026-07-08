@@ -1664,6 +1664,13 @@ html body {
     letter-spacing: 2px;
 }
 
+.cart-checkout.is-disabled {
+    background: #b8b8b8;
+    color: #f5f5f5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* ========== RESPONSIVE ========== */
 
 @media (max-width: 768px) {

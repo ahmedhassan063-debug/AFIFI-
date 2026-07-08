@@ -1666,7 +1666,23 @@ function renderCart() {
 
     const total = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     totalWrap.textContent = `${total} EGP`;
-    checkoutLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildWhatsAppMessage())}`;
+
+    const isEmpty = activeItems.length === 0;
+    if (isEmpty) {
+        checkoutLink.textContent = 'Cart is empty';
+        checkoutLink.href = '#';
+        checkoutLink.setAttribute('aria-disabled', 'true');
+        checkoutLink.classList.add('is-disabled');
+        checkoutLink.removeAttribute('target');
+        checkoutLink.removeAttribute('rel');
+    } else {
+        checkoutLink.textContent = 'SEND ORDER ON WHATSAPP';
+        checkoutLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildWhatsAppMessage())}`;
+        checkoutLink.setAttribute('aria-disabled', 'false');
+        checkoutLink.classList.remove('is-disabled');
+        checkoutLink.setAttribute('target', '_blank');
+        checkoutLink.setAttribute('rel', 'noopener');
+    }
 
     updateCartBadge();
 }
@@ -1696,6 +1712,14 @@ function createCartPanel() {
     document.body.appendChild(panel);
 
     panel.querySelector('.cart-close').addEventListener('click', () => panel.classList.remove('open'));
+
+    const checkoutLink = panel.querySelector('.cart-checkout');
+    checkoutLink.addEventListener('click', (event) => {
+        if (getActiveCartItems().length === 0) {
+            event.preventDefault();
+        }
+    });
+
     panel.addEventListener('click', async (event) => {
         const removeBtn = event.target.closest('.cart-remove');
         if (removeBtn) {
