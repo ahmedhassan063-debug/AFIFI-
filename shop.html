@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.8">
+    <link rel="stylesheet" href="brand.css?v=1.13">
     <title>AFIFI | SHOP</title>
     <meta name="description" content="Shop the full AFIFI collection - premium streetwear tees, hoodies, pants, and accessories from an original Egyptian brand.">
 </head>
@@ -42,6 +42,13 @@
 
 <section class="shop-content">
     <aside class="shop-sidebar">
+        <div class="filter-group">
+            <h3>Search</h3>
+            <form id="shopSearchForm" class="shop-search-form" role="search">
+                <label for="shopSearchInput" class="visually-hidden">Search products</label>
+                <input type="search" id="shopSearchInput" class="shop-search-input" placeholder="Search products…" autocomplete="off">
+            </form>
+        </div>
         <div class="filter-group">
             <h3>Categories</h3>
             <button class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
@@ -178,6 +185,6 @@
     </div>
 </footer>
 
-<script src="brand.js?v=1.11"></script>
+<script src="brand.js?v=1.15"></script>
 </body>
 </html>

@@ -104,8 +104,11 @@ function handleUnauthenticatedResponse() {
         clearAuthToken();
         localStorage.removeItem('afifiUser');
         if (typeof apiCartItems !== 'undefined') apiCartItems = [];
+        if (typeof apiWishlistItems !== 'undefined') apiWishlistItems = [];
         if (typeof updateAuthUI === 'function') updateAuthUI();
         if (typeof renderCart === 'function') renderCart();
+        if (typeof updateWishlistBadge === 'function') updateWishlistBadge();
+        if (typeof renderWishlist === 'function') renderWishlist();
     } catch (cleanupError) {
         console.warn('AFIFI: could not fully clear session state after 401.', cleanupError);
     }
@@ -445,7 +448,202 @@ if (hamburger && navMenu) {
     });
 }
 
+function getShopPageBase() {
+    if (window.location.protocol === 'file:') return 'shop.html';
+    return /\.html$/i.test(window.location.pathname) ? 'shop.html' : 'shop';
+}
+
+function buildShopSearchUrl(query) {
+    const base = getShopPageBase();
+    const trimmed = String(query || '').trim();
+    if (!trimmed) return base;
+    return `${base}?search=${encodeURIComponent(trimmed)}`;
+}
+
 document.documentElement.style.scrollBehavior = 'smooth';
+
+const OVERLAY_TRANSITION_MS = 360;
+const SUPPORTS_SCROLLBAR_GUTTER = typeof CSS !== 'undefined'
+    && typeof CSS.supports === 'function'
+    && CSS.supports('scrollbar-gutter', 'stable');
+
+function getScrollbarWidth() {
+    return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+}
+
+function isScrollLocked() {
+    return document.body.classList.contains('auth-modal-open')
+        || document.body.classList.contains('search-open')
+        || document.body.classList.contains('drawer-open');
+}
+
+function updateScrollLockCompensation() {
+    const locked = isScrollLocked();
+    const scrollbarWidth = locked ? getScrollbarWidth() : 0;
+    const padding = !SUPPORTS_SCROLLBAR_GUTTER && scrollbarWidth > 0 ? `${scrollbarWidth}px` : '';
+
+    document.body.style.paddingRight = padding;
+    document.querySelectorAll('.navbar').forEach(el => {
+        el.style.paddingRight = padding;
+    });
+}
+
+function revealOverlay(overlay, bodyClass) {
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    if (bodyClass) document.body.classList.add(bodyClass);
+    updateScrollLockCompensation();
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => overlay.classList.add('is-open'));
+    });
+}
+
+function concealOverlay(overlay, bodyClass, afterClose) {
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    if (bodyClass) document.body.classList.remove(bodyClass);
+    updateScrollLockCompensation();
+
+    let finished = false;
+    const finish = () => {
+        if (finished) return;
+        finished = true;
+        overlay.hidden = true;
+        overlay.removeEventListener('transitionend', onTransitionEnd);
+        if (afterClose) afterClose();
+    };
+
+    const onTransitionEnd = (event) => {
+        if (event.target === overlay) finish();
+    };
+
+    overlay.addEventListener('transitionend', onTransitionEnd);
+    window.setTimeout(finish, OVERLAY_TRANSITION_MS + 60);
+}
+
+let drawerBackdropEl = null;
+
+function getDrawerBackdrop() {
+    if (!drawerBackdropEl) {
+        drawerBackdropEl = document.createElement('div');
+        drawerBackdropEl.className = 'drawer-backdrop';
+        drawerBackdropEl.setAttribute('aria-hidden', 'true');
+        drawerBackdropEl.addEventListener('click', closeAllDrawers);
+        document.body.appendChild(drawerBackdropEl);
+    }
+    return drawerBackdropEl;
+}
+
+function syncDrawerBackdrop() {
+    const backdrop = getDrawerBackdrop();
+    const hasOpenDrawer = document.querySelector('.cart-panel.open, .wishlist-panel.open');
+    backdrop.classList.toggle('is-open', !!hasOpenDrawer);
+    backdrop.setAttribute('aria-hidden', hasOpenDrawer ? 'false' : 'true');
+    document.body.classList.toggle('drawer-open', !!hasOpenDrawer);
+    updateScrollLockCompensation();
+}
+
+function openDrawerPanel(panel) {
+    document.querySelectorAll('.cart-panel.open, .wishlist-panel.open').forEach(openPanel => {
+        if (openPanel !== panel) {
+            openPanel.classList.remove('open');
+            openPanel.setAttribute('aria-hidden', 'true');
+        }
+    });
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    syncDrawerBackdrop();
+}
+
+function closeDrawerPanel(panel) {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    syncDrawerBackdrop();
+}
+
+function closeAllDrawers() {
+    document.querySelectorAll('.cart-panel.open, .wishlist-panel.open').forEach(panel => {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+    });
+    syncDrawerBackdrop();
+}
+
+// ========== HEADER SEARCH OVERLAY ==========
+function createSearchOverlay() {
+    const overlay = document.createElement('div');
+    overlay.className = 'search-overlay';
+    overlay.id = 'searchOverlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+        <div class="search-overlay-backdrop" data-search-close></div>
+        <div class="search-dropdown" role="dialog" aria-modal="true" aria-labelledby="searchOverlayTitle">
+            <button type="button" class="search-overlay-close" aria-label="Close search" data-search-close>&times;</button>
+            <h2 id="searchOverlayTitle" class="search-overlay-title">Search Products</h2>
+            <form class="search-overlay-form" id="searchOverlayForm">
+                <label for="searchOverlayInput" class="visually-hidden">Search products</label>
+                <input type="search" id="searchOverlayInput" class="search-overlay-input" placeholder="Search products…" autocomplete="off">
+                <button type="submit" class="search-overlay-submit">Search</button>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#searchOverlayInput');
+    const form = overlay.querySelector('#searchOverlayForm');
+
+    function closeSearchOverlay() {
+        concealOverlay(overlay, 'search-open');
+    }
+
+    function openSearchOverlay() {
+        revealOverlay(overlay, 'search-open');
+        if (input) {
+            input.value = '';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => input.focus());
+            });
+        }
+    }
+
+    overlay.querySelectorAll('[data-search-close]').forEach(el => {
+        el.addEventListener('click', closeSearchOverlay);
+    });
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const query = input ? input.value.trim() : '';
+        if (!query) return;
+        window.location.href = buildShopSearchUrl(query);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && overlay.classList.contains('is-open')) {
+            closeSearchOverlay();
+        }
+    });
+
+    document.querySelectorAll('img[alt="Search"]').forEach(icon => {
+        const link = icon.closest('a');
+        if (!link || link.dataset.searchReady) return;
+        link.dataset.searchReady = 'true';
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const navMenuEl = document.getElementById('navMenu');
+            const hamburgerEl = document.getElementById('hamburger');
+            if (navMenuEl) navMenuEl.classList.remove('open');
+            if (hamburgerEl) {
+                hamburgerEl.classList.remove('active');
+                hamburgerEl.setAttribute('aria-expanded', 'false');
+            }
+            openSearchOverlay();
+        });
+    });
+
+    return { open: openSearchOverlay, close: closeSearchOverlay };
+}
+
+createSearchOverlay();
 
 // ========== PRODUCT PAGE: STABLE PRODUCT ID (from ?slug= or ?id=) ==========
 const productPageIdentifier = getProductPageIdentifier();
@@ -535,8 +733,11 @@ const sortSelect = document.querySelector('.sort-select');
 const shopCount = document.getElementById('shopCount');
 const shopEmpty = document.getElementById('shopEmpty');
 const shopClearFilters = document.getElementById('shopClearFilters');
+const shopSearchInput = document.getElementById('shopSearchInput');
+const shopSearchForm = document.getElementById('shopSearchForm');
 const filterBtns = document.querySelectorAll('.filter-btn');
 let activeFilter = 'all';
+let activeShopSearch = '';
 
 // Maps the static filter button values to the real backend category slugs
 // they represent. Static fallback cards already use these exact values as
@@ -555,6 +756,19 @@ function matchesShopFilter(categorySlug, filterValue) {
     if (categorySlug === filterValue) return true;
     const mapped = SHOP_FILTER_CATEGORY_MAP[filterValue];
     return Array.isArray(mapped) && mapped.includes(categorySlug);
+}
+
+function matchesShopSearch(card, query) {
+    if (!query) return true;
+    const q = String(query).toLowerCase().trim();
+    const haystack = [
+        card.dataset.search,
+        card.dataset.name,
+        card.dataset.id,
+        card.dataset.category,
+        card.textContent
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(q);
 }
 
 function setActiveFilter(filterValue) {
@@ -579,7 +793,9 @@ function updateShopGrid() {
 
     let visibleCount = 0;
     sortedCards.forEach(card => {
-        const isVisible = matchesShopFilter(card.dataset.category, activeFilter);
+        const matchesCategory = matchesShopFilter(card.dataset.category, activeFilter);
+        const matchesSearch = matchesShopSearch(card, activeShopSearch);
+        const isVisible = matchesCategory && matchesSearch;
         card.style.display = isVisible ? '' : 'none';
         if (isVisible) visibleCount += 1;
         shopGrid.appendChild(card);
@@ -603,10 +819,44 @@ if (sortSelect) {
 }
 
 if (shopClearFilters) {
-    shopClearFilters.addEventListener('click', () => setActiveFilter('all'));
+    shopClearFilters.addEventListener('click', () => {
+        activeShopSearch = '';
+        if (shopSearchInput) shopSearchInput.value = '';
+        setActiveFilter('all');
+        window.history.replaceState(null, '', getShopPageBase());
+    });
 }
 
-updateShopGrid();
+if (shopSearchForm && shopSearchInput) {
+    shopSearchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        activeShopSearch = shopSearchInput.value.trim();
+        if (activeShopSearch) {
+            window.history.replaceState(null, '', buildShopSearchUrl(activeShopSearch));
+        } else {
+            window.history.replaceState(null, '', getShopPageBase());
+        }
+        updateShopGrid();
+    });
+
+    shopSearchInput.addEventListener('input', () => {
+        activeShopSearch = shopSearchInput.value.trim();
+        updateShopGrid();
+    });
+}
+
+function initShopSearchFromUrl() {
+    if (!shopGrid) return;
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('search');
+    if (query != null && String(query).trim() !== '') {
+        activeShopSearch = query.trim();
+        if (shopSearchInput) shopSearchInput.value = activeShopSearch;
+    }
+    updateShopGrid();
+}
+
+initShopSearchFromUrl();
 
 function getProductCategorySlug(product) {
     const category = product.category || {};
@@ -633,6 +883,10 @@ async function loadShopProducts() {
             card.dataset.price = String(Number(product.base_price) || 0);
             card.dataset.order = String(index + 1);
             card.dataset.name = product.name || '';
+            card.dataset.search = [product.name, product.slug, product.category && product.category.name]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
             shopGrid.appendChild(card);
         });
 
@@ -645,6 +899,7 @@ async function loadShopProducts() {
         updateWishlistBadge();
 
         setActiveFilter('all');
+        initShopSearchFromUrl();
     } catch (error) {
         console.warn('AFIFI: could not load shop products from API, keeping static content.', error);
     }
@@ -1151,6 +1406,7 @@ async function handleLogout() {
     window.afifiApi.clearAuthToken();
     clearStoredUser();
     apiCartItems = [];
+    apiWishlistItems = [];
     updateAuthUI();
     renderCart();
 }
@@ -1300,16 +1556,15 @@ function createAuthModal() {
     });
 
     function closeModal() {
-        overlay.hidden = true;
-        document.body.classList.remove('auth-modal-open');
-        showMessage('');
-        loginForm.reset();
-        registerForm.reset();
+        concealOverlay(overlay, 'auth-modal-open', () => {
+            showMessage('');
+            loginForm.reset();
+            registerForm.reset();
+        });
     }
 
     function openModal(tabName) {
-        overlay.hidden = false;
-        document.body.classList.add('auth-modal-open');
+        revealOverlay(overlay, 'auth-modal-open');
         switchTab(tabName || 'login');
     }
 
@@ -1318,7 +1573,7 @@ function createAuthModal() {
         if (e.target === overlay) closeModal();
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !overlay.hidden) closeModal();
+        if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeModal();
     });
 
     function setFormLoading(form, isLoading) {
@@ -1339,6 +1594,7 @@ function createAuthModal() {
         showMessage('Success! Welcome to AFIFI.', 'success');
         updateAuthUI();
         loadApiCart();
+        loadApiWishlist();
         setTimeout(closeModal, 900);
     }
 
@@ -1698,6 +1954,7 @@ function updateCartBadge() {
 function createCartPanel() {
     const panel = document.createElement('aside');
     panel.className = 'cart-panel';
+    panel.setAttribute('aria-hidden', 'true');
     panel.innerHTML = `
         <div class="cart-header">
             <h3>YOUR CART</h3>
@@ -1711,7 +1968,7 @@ function createCartPanel() {
     `;
     document.body.appendChild(panel);
 
-    panel.querySelector('.cart-close').addEventListener('click', () => panel.classList.remove('open'));
+    panel.querySelector('.cart-close').addEventListener('click', () => closeDrawerPanel(panel));
 
     const checkoutLink = panel.querySelector('.cart-checkout');
     checkoutLink.addEventListener('click', (event) => {
@@ -1753,13 +2010,19 @@ function createCartPanel() {
         if (!link) return;
         link.addEventListener('click', (event) => {
             event.preventDefault();
-            panel.classList.add('open');
+            openDrawerPanel(panel);
             if (isLoggedIn()) {
                 loadApiCart();
             } else {
                 renderCart();
             }
         });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && panel.classList.contains('open')) {
+            closeDrawerPanel(panel);
+        }
     });
 
     renderCart();
@@ -1781,7 +2044,9 @@ whatsappFloat.innerHTML = '<svg viewBox="0 0 24 24" fill="#06150B"><path d="M12.
 document.body.appendChild(whatsappFloat);
 
 // ========== WISHLIST ==========
+const WISHLIST_PLACEHOLDER_IMAGE = CART_PLACEHOLDER_IMAGE;
 let wishlistItems = JSON.parse(localStorage.getItem('afifiWishlist') || '[]');
+let apiWishlistItems = [];
 
 function saveWishlist() {
     localStorage.setItem('afifiWishlist', JSON.stringify(wishlistItems));
@@ -1799,50 +2064,311 @@ function getWishlistKey(btn) {
     return img ? img.alt : 'item';
 }
 
+function isWishlistKeyActive(key) {
+    if (isLoggedIn()) {
+        return apiWishlistItems.some(item => {
+            const product = item.product || {};
+            return product.slug === key || String(product.id) === String(key);
+        });
+    }
+    return wishlistItems.includes(key);
+}
+
+function normalizeApiWishlistItem(item) {
+    const product = item.product || {};
+    return {
+        key: product.slug || String(product.id),
+        apiWishlistItemId: item.id,
+        productId: product.id,
+        name: product.name || 'AFIFI PRODUCT',
+        price: Number(product.base_price) || 0,
+        image: '',
+        href: getProductPageHref(product)
+    };
+}
+
+async function enrichWishlistDisplayItems(items) {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    try {
+        const products = await fetchCatalogProducts();
+        return items.map(item => {
+            const product = findProductBySlugOrId(products, item.key)
+                || products.find(p => p.id === item.productId);
+            if (!product) return item;
+            return {
+                ...item,
+                name: product.name || item.name,
+                price: Number(product.base_price) || item.price,
+                image: getProductImage(product),
+                href: getProductPageHref(product) || item.href
+            };
+        });
+    } catch (error) {
+        console.warn('AFIFI: could not enrich wishlist items from catalog.', error);
+        return items;
+    }
+}
+
+async function getWishlistDisplayItems() {
+    if (isLoggedIn()) {
+        return enrichWishlistDisplayItems(apiWishlistItems.map(normalizeApiWishlistItem));
+    }
+
+    try {
+        const products = await fetchCatalogProducts();
+        const items = wishlistItems.map(key => {
+            const product = findProductBySlugOrId(products, key);
+            if (product) {
+                return {
+                    key,
+                    apiWishlistItemId: '',
+                    productId: product.id,
+                    name: product.name || key,
+                    price: Number(product.base_price) || 0,
+                    image: getProductImage(product),
+                    href: getProductPageHref(product)
+                };
+            }
+            return {
+                key,
+                apiWishlistItemId: '',
+                productId: '',
+                name: key,
+                price: 0,
+                image: WISHLIST_PLACEHOLDER_IMAGE,
+                href: '#'
+            };
+        });
+        return items;
+    } catch (error) {
+        console.warn('AFIFI: could not resolve wishlist items from catalog.', error);
+        return wishlistItems.map(key => ({
+            key,
+            apiWishlistItemId: '',
+            productId: '',
+            name: key,
+            price: 0,
+            image: WISHLIST_PLACEHOLDER_IMAGE,
+            href: '#'
+        }));
+    }
+}
+
+async function loadApiWishlist() {
+    if (!isLoggedIn()) return;
+    try {
+        const response = await window.afifiApi.apiRequest('/wishlist');
+        const wishlist = response && response.data;
+        const items = (wishlist && wishlist.items) || [];
+        apiWishlistItems = Array.isArray(items) ? items : [];
+    } catch (error) {
+        console.warn('AFIFI: failed to load wishlist from server.', error);
+        apiWishlistItems = [];
+    }
+    updateWishlistBadge();
+    document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
+    renderWishlist();
+}
+
+async function addApiWishlistItem(productId, productVariantId) {
+    try {
+        const body = { product_id: Number(productId) };
+        if (productVariantId) body.product_variant_id = Number(productVariantId);
+        await window.afifiApi.apiRequest('/wishlist/items', { method: 'POST', body });
+        await loadApiWishlist();
+        return { success: true };
+    } catch (error) {
+        console.warn('AFIFI: failed to add item to wishlist via API.', error);
+        return { success: false, message: getAuthErrorMessage(error) };
+    }
+}
+
+async function removeApiWishlistItem(wishlistItemId) {
+    try {
+        await window.afifiApi.apiRequest(`/wishlist/items/${wishlistItemId}`, { method: 'DELETE' });
+        await loadApiWishlist();
+    } catch (error) {
+        console.warn('AFIFI: failed to remove wishlist item via API.', error);
+    }
+}
+
+async function removeWishlistByKey(key, apiWishlistItemId) {
+    if (isLoggedIn() && apiWishlistItemId) {
+        await removeApiWishlistItem(apiWishlistItemId);
+        return;
+    }
+
+    const idx = wishlistItems.indexOf(key);
+    if (idx > -1) {
+        wishlistItems.splice(idx, 1);
+        saveWishlist();
+        updateWishlistBadge();
+        document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
+        renderWishlist();
+    }
+}
+
+async function toggleWishlistItem(btn) {
+    const key = getWishlistKey(btn);
+
+    if (isLoggedIn()) {
+        const products = await fetchCatalogProducts();
+        const product = findProductBySlugOrId(products, key);
+        if (!product) return;
+
+        const existing = apiWishlistItems.find(item => {
+            const p = item.product || {};
+            return p.id === product.id || p.slug === product.slug;
+        });
+
+        if (existing) {
+            await removeApiWishlistItem(existing.id);
+            btn.classList.remove('active');
+        } else {
+            const selectedVariant = typeof getSelectedVariant === 'function' ? getSelectedVariant() : null;
+            const result = await addApiWishlistItem(product.id, selectedVariant && selectedVariant.id);
+            if (result.success !== false) btn.classList.add('active');
+        }
+        return;
+    }
+
+    const idx = wishlistItems.indexOf(key);
+    if (idx > -1) {
+        wishlistItems.splice(idx, 1);
+        btn.classList.remove('active');
+    } else {
+        wishlistItems.push(key);
+        btn.classList.add('active');
+    }
+    saveWishlist();
+    updateWishlistBadge();
+    renderWishlist();
+}
+
 function updateWishlistBadge() {
     const badge = document.getElementById('wishlistBadge');
     if (!badge) return;
-    badge.textContent = wishlistItems.length;
-    badge.classList.toggle('show', wishlistItems.length > 0);
+    const count = isLoggedIn() ? apiWishlistItems.length : wishlistItems.length;
+    badge.textContent = count;
+    badge.classList.toggle('show', count > 0);
     const wishlistLink = badge.closest('.wishlist-icon-link');
-    if (wishlistLink) wishlistLink.classList.toggle('has-items', wishlistItems.length > 0);
+    if (wishlistLink) wishlistLink.classList.toggle('has-items', count > 0);
 }
 
-// Recomputes and applies the active/inactive visual state for a wishlist
-// button using whatever identifier it currently resolves to. Safe to call
-// again later (e.g. after loadProductDetails() updates data-id once the real
-// product loads) without adding another click listener.
 function refreshWishlistActiveState(btn) {
     const key = getWishlistKey(btn);
-    btn.classList.toggle('active', wishlistItems.includes(key));
+    btn.classList.toggle('active', isWishlistKeyActive(key));
 }
 
 function wireWishlistButton(btn) {
     refreshWishlistActiveState(btn);
 
-    // The key is resolved fresh on every click (not captured once at wire
-    // time) so it always reflects the current data-id - important on
-    // product.html, where the real product id/slug only becomes available
-    // after the async API match resolves, after this button was first wired.
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
         e.preventDefault();
-        const key = getWishlistKey(btn);
-        const idx = wishlistItems.indexOf(key);
-        if (idx > -1) {
-            wishlistItems.splice(idx, 1);
-            btn.classList.remove('active');
-        } else {
-            wishlistItems.push(key);
-            btn.classList.add('active');
-        }
-        saveWishlist();
-        updateWishlistBadge();
+        await toggleWishlistItem(btn);
     });
+}
+
+async function renderWishlist() {
+    const itemsWrap = document.querySelector('.wishlist-items');
+    if (!itemsWrap) return;
+
+    const items = await getWishlistDisplayItems();
+
+    if (items.length === 0) {
+        itemsWrap.innerHTML = '<p class="wishlist-empty">Your wishlist is empty.</p>';
+        return;
+    }
+
+    itemsWrap.innerHTML = items.map(item => {
+        const safeName = escapeHtml(item.name);
+        const safeKey = escapeHtml(item.key);
+        const href = item.href && item.href !== '#' ? item.href : '#';
+        return `
+            <div class="wishlist-item">
+                <div class="wishlist-item-thumb">
+                    <img src="${item.image || WISHLIST_PLACEHOLDER_IMAGE}" alt="${safeName}" onerror="this.src='${WISHLIST_PLACEHOLDER_IMAGE}'">
+                </div>
+                <div class="wishlist-item-info">
+                    <strong>${safeName}</strong>
+                    <span class="wishlist-item-price">${formatPrice(item.price)}</span>
+                    <div class="wishlist-item-actions">
+                        ${href !== '#' ? `<a href="${href}" class="wishlist-view-link">View product</a>` : ''}
+                        <button type="button" class="wishlist-remove" data-key="${safeKey}" data-wishlist-item-id="${item.apiWishlistItemId || ''}" aria-label="Remove ${safeName} from wishlist">Remove</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function createWishlistPanel() {
+    const panel = document.createElement('aside');
+    panel.className = 'wishlist-panel';
+    panel.setAttribute('aria-hidden', 'true');
+    panel.innerHTML = `
+        <div class="wishlist-header">
+            <h3>YOUR WISHLIST</h3>
+            <button type="button" class="wishlist-close" aria-label="Close wishlist">&times;</button>
+        </div>
+        <div class="wishlist-items"></div>
+    `;
+    document.body.appendChild(panel);
+
+    function closeWishlistPanel() {
+        closeDrawerPanel(panel);
+    }
+
+    function openWishlistPanel() {
+        openDrawerPanel(panel);
+        if (isLoggedIn()) {
+            loadApiWishlist();
+        } else {
+            renderWishlist();
+        }
+    }
+
+    panel.querySelector('.wishlist-close').addEventListener('click', closeWishlistPanel);
+
+    panel.addEventListener('click', async (event) => {
+        const removeBtn = event.target.closest('.wishlist-remove');
+        if (!removeBtn) return;
+        await removeWishlistByKey(removeBtn.dataset.key, removeBtn.dataset.wishlistItemId);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && panel.classList.contains('open')) {
+            closeWishlistPanel();
+        }
+    });
+
+    document.querySelectorAll('.wishlist-icon-link').forEach(link => {
+        if (link.dataset.panelReady) return;
+        link.dataset.panelReady = 'true';
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const navMenuEl = document.getElementById('navMenu');
+            const hamburgerEl = document.getElementById('hamburger');
+            if (navMenuEl) navMenuEl.classList.remove('open');
+            if (hamburgerEl) {
+                hamburgerEl.classList.remove('active');
+                hamburgerEl.setAttribute('aria-expanded', 'false');
+            }
+            openWishlistPanel();
+        });
+    });
+
+    renderWishlist();
 }
 
 document.querySelectorAll('.wishlist, .add-wishlist').forEach(wireWishlistButton);
 
 updateWishlistBadge();
+createWishlistPanel();
+
+if (isLoggedIn()) {
+    loadApiWishlist();
+}
 
 // ========== NEWSLETTER FEEDBACK ==========
 document.querySelectorAll('.newsletter-form').forEach(form => {
