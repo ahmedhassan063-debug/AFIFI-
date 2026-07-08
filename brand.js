@@ -417,6 +417,41 @@ function initHeroFontGate() {
 
 initHeroFontGate();
 
+// ========== SHOP PAGE HEADER FONT GATE ==========
+const SHOP_FONT_TIMEOUT_MS = 1800;
+
+function initShopFontGate() {
+    const header = document.getElementById('shopPageHeader') || document.querySelector('.page-header');
+    if (!header || !document.querySelector('.shop-grid')) return;
+
+    let revealed = false;
+
+    function revealShopFonts() {
+        if (revealed) return;
+        revealed = true;
+        header.classList.remove('shop-fonts-loading');
+        header.classList.add('shop-fonts-ready');
+    }
+
+    if (!header.classList.contains('shop-fonts-loading')) {
+        header.classList.add('shop-fonts-loading');
+    }
+
+    function waitForShopFonts() {
+        if (!document.fonts || typeof document.fonts.load !== 'function') {
+            return Promise.resolve();
+        }
+        return document.fonts.load('400 1em "Bebas Neue"').catch(() => Promise.resolve());
+    }
+
+    Promise.race([
+        waitForShopFonts().then(() => (document.fonts.ready || Promise.resolve())),
+        new Promise((resolve) => window.setTimeout(resolve, SHOP_FONT_TIMEOUT_MS))
+    ]).then(revealShopFonts);
+}
+
+initShopFontGate();
+
 // ========== HERO SLIDESHOW ==========
 const slides = document.querySelectorAll('.slide');
 let current = 0;
@@ -727,13 +762,63 @@ const productPageIdentifier = getProductPageIdentifier();
 let productPageData = { variants: [] };
 
 // ========== PRODUCT PAGE: THUMBNAIL SWITCHING ==========
+const PRODUCT_IMAGE_FALLBACK = 'images/AFIFI_BRANDS_VECTOR.svg';
+
+function preloadProductImage(url) {
+    if (!url) return;
+    const existing = document.querySelector('link[data-product-image-preload]');
+    if (existing) existing.remove();
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = url;
+    link.setAttribute('data-product-image-preload', '');
+    document.head.appendChild(link);
+}
+
+function setMainProductImage(src, alt) {
+    const mainImg = document.getElementById('mainProductImg');
+    const skeleton = document.querySelector('.product-image-skeleton');
+    const mainImageWrap = document.querySelector('.main-image');
+    if (!mainImg || !src) return;
+
+    mainImg.alt = alt || 'Product image';
+
+    const showLoaded = () => {
+        mainImg.classList.add('is-loaded');
+        mainImg.hidden = false;
+        if (skeleton) skeleton.hidden = true;
+        if (mainImageWrap) mainImageWrap.classList.remove('is-loading-image');
+    };
+
+    if (mainImageWrap) mainImageWrap.classList.add('is-loading-image');
+    mainImg.classList.remove('is-loaded');
+    mainImg.hidden = true;
+    if (skeleton) skeleton.hidden = false;
+
+    mainImg.onload = showLoaded;
+    mainImg.onerror = () => {
+        if (mainImg.src.includes('AFIFI_BRANDS_VECTOR')) {
+            showLoaded();
+            return;
+        }
+        mainImg.src = PRODUCT_IMAGE_FALLBACK;
+    };
+
+    mainImg.src = src;
+    if (mainImg.complete) showLoaded();
+}
+
 function changeImage(thumb) {
     const mainImg = document.getElementById('mainProductImg');
-    if (mainImg) {
-        mainImg.src = thumb.src;
-        document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active-thumb'));
-        thumb.classList.add('active-thumb');
-    }
+    if (!mainImg || !thumb || !thumb.src) return;
+
+    document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active-thumb'));
+    thumb.classList.add('active-thumb');
+
+    if (mainImg.src === thumb.src && mainImg.classList.contains('is-loaded')) return;
+
+    setMainProductImage(thumb.src, mainImg.alt);
 }
 
 function wireThumbButton(thumbBtn) {
@@ -815,6 +900,7 @@ const shopSearchForm = document.getElementById('shopSearchForm');
 const filterBtns = document.querySelectorAll('.filter-btn');
 let activeFilter = 'all';
 let activeShopSearch = '';
+let shopProductsReady = false;
 
 // Maps the static filter button values to the real backend category slugs
 // they represent. Static fallback cards already use these exact values as
@@ -848,6 +934,18 @@ function matchesShopSearch(card, query) {
     return haystack.includes(q);
 }
 
+function setShopLoadingState(isLoading) {
+    if (!shopGrid) return;
+    shopGrid.classList.toggle('is-loading', isLoading);
+    shopGrid.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    if (shopCount && isLoading) {
+        shopCount.textContent = 'Loading products...';
+    }
+    if (shopEmpty && isLoading) {
+        shopEmpty.hidden = true;
+    }
+}
+
 function setActiveFilter(filterValue) {
     activeFilter = filterValue || 'all';
     filterBtns.forEach(b => {
@@ -860,6 +958,12 @@ function setActiveFilter(filterValue) {
 
 function updateShopGrid() {
     if (!shopGrid) return;
+
+    if (!shopProductsReady) {
+        setShopLoadingState(true);
+        if (shopEmpty) shopEmpty.hidden = true;
+        return;
+    }
 
     const sortedCards = [...shopCards].sort((a, b) => {
         const sortValue = sortSelect ? sortSelect.value : 'newest';
@@ -884,6 +988,7 @@ function updateShopGrid() {
 
     if (shopEmpty) {
         shopEmpty.hidden = visibleCount !== 0;
+        if (visibleCount === 0) shopGrid.appendChild(shopEmpty);
     }
 }
 
@@ -922,7 +1027,7 @@ if (shopSearchForm && shopSearchInput) {
     });
 }
 
-function initShopSearchFromUrl() {
+function readShopSearchFromUrl() {
     if (!shopGrid) return;
     const params = new URLSearchParams(window.location.search);
     const query = params.get('search');
@@ -930,10 +1035,15 @@ function initShopSearchFromUrl() {
         activeShopSearch = query.trim();
         if (shopSearchInput) shopSearchInput.value = activeShopSearch;
     }
+}
+
+function initShopSearchFromUrl() {
+    readShopSearchFromUrl();
     updateShopGrid();
 }
 
-initShopSearchFromUrl();
+readShopSearchFromUrl();
+setShopLoadingState(true);
 
 function getProductCategorySlug(product) {
     const category = product.category || {};
@@ -944,15 +1054,26 @@ function getProductCategorySlug(product) {
 async function loadShopProducts() {
     if (!shopGrid) return;
 
+    setShopLoadingState(true);
+    shopProductsReady = false;
+
     try {
         const products = await fetchCatalogProducts();
 
+        shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
+
         if (products.length === 0) {
-            console.warn('AFIFI: no products returned from API, keeping static shop content.');
+            console.warn('AFIFI: no products returned from API.');
+            shopProductsReady = true;
+            setShopLoadingState(false);
+            shopCards = [];
+            if (shopEmpty) {
+                shopEmpty.hidden = false;
+                shopGrid.appendChild(shopEmpty);
+            }
+            if (shopCount) shopCount.textContent = '0 products';
             return;
         }
-
-        shopGrid.innerHTML = '';
 
         products.forEach((product, index) => {
             const card = renderProductCard(product);
@@ -975,10 +1096,25 @@ async function loadShopProducts() {
         shopGrid.querySelectorAll('.wishlist').forEach(wireWishlistButton);
         updateWishlistBadge();
 
+        shopProductsReady = true;
+        setShopLoadingState(false);
+        readShopSearchFromUrl();
         setActiveFilter('all');
-        initShopSearchFromUrl();
     } catch (error) {
-        console.warn('AFIFI: could not load shop products from API, keeping static content.', error);
+        console.warn('AFIFI: could not load shop products from API.', error);
+        shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
+        shopProductsReady = true;
+        setShopLoadingState(false);
+        shopCards = [];
+        if (shopEmpty) {
+            const title = shopEmpty.querySelector('.shop-empty-title');
+            const text = shopEmpty.querySelector('.shop-empty-text');
+            if (title) title.textContent = 'Unable to load products.';
+            if (text) text.textContent = 'Please refresh the page and try again.';
+            shopEmpty.hidden = false;
+            shopGrid.appendChild(shopEmpty);
+        }
+        if (shopCount) shopCount.textContent = '0 products';
     }
 }
 
@@ -1149,9 +1285,8 @@ function renderColorSwatches(colors) {
     });
 }
 
-function renderThumbnails(images) {
+function renderThumbnails(images, productName) {
     const container = document.querySelector('.thumbnails');
-    const mainImg = document.getElementById('mainProductImg');
     if (!container || !Array.isArray(images) || images.length === 0) return;
 
     container.innerHTML = '';
@@ -1159,22 +1294,30 @@ function renderThumbnails(images) {
         const thumbBtn = document.createElement('button');
         thumbBtn.type = 'button';
         thumbBtn.className = 'thumb-btn';
-        thumbBtn.setAttribute('aria-label', `View ${index + 1}`);
+        thumbBtn.setAttribute('aria-label', `View image ${index + 1}`);
         thumbBtn.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
 
         const img = document.createElement('img');
         img.src = src;
-        img.alt = `View ${index + 1}`;
+        img.alt = productName ? `${productName} thumbnail ${index + 1}` : `View ${index + 1}`;
         img.className = 'thumb' + (index === 0 ? ' active-thumb' : '');
+        img.width = 80;
+        img.height = 80;
+        img.decoding = 'async';
         img.loading = 'lazy';
+        img.onerror = function onThumbError() {
+            this.onerror = null;
+            this.src = PRODUCT_IMAGE_FALLBACK;
+        };
 
         thumbBtn.appendChild(img);
         container.appendChild(thumbBtn);
         wireThumbButton(thumbBtn);
     });
 
-    if (mainImg && images[0]) {
-        mainImg.src = images[0];
+    if (images[0]) {
+        preloadProductImage(images[0]);
+        setMainProductImage(images[0], productName || 'Product image');
     }
 }
 
@@ -1256,12 +1399,7 @@ function revealProductDetailUI(matched) {
     if (breadcrumbCurrent) breadcrumbCurrent.textContent = matched.name;
 
     const mainImg = document.getElementById('mainProductImg');
-    const skeleton = document.querySelector('.product-image-skeleton');
-    if (mainImg) {
-        mainImg.hidden = false;
-        mainImg.alt = matched.name || 'Product image';
-    }
-    if (skeleton) skeleton.hidden = true;
+    if (mainImg) mainImg.alt = matched.name || 'Product image';
 
     if (addToCartBtn) addToCartBtn.disabled = false;
 
@@ -1373,7 +1511,7 @@ async function loadProductDetails() {
             whatsappOrderLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
         }
 
-        renderThumbnails(getProductImages(matched));
+        renderThumbnails(getProductImages(matched), matched.name);
 
         const sizes = [];
         const sizeIds = new Set();

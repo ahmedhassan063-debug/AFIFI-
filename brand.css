@@ -1455,8 +1455,10 @@ body.search-open {
 }
 
 .product-image-skeleton {
+    position: absolute;
+    inset: 0;
     width: 100%;
-    aspect-ratio: 3 / 4;
+    height: 100%;
     border-radius: var(--radius);
     background: linear-gradient(90deg, #ece8e1 25%, #f6f3ee 50%, #ece8e1 75%);
     background-size: 200% 100%;
@@ -1494,9 +1496,36 @@ body.search-open {
 }
 
 .product-gallery { flex: 1; max-width: 500px; }
-.main-image { background: #f0f0f0; border-radius: var(--radius); overflow: hidden; margin-bottom: 15px; }
-.main-image img { width: 100%; display: block; }
-.thumbnails { display: flex; gap: 10px; }
+
+.main-image {
+    position: relative;
+    background: #f0f0f0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 15px;
+    aspect-ratio: 3 / 4;
+}
+
+.main-image img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.main-image img.is-loaded {
+    opacity: 1;
+}
+
+.thumbnails {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
 
 .thumb-btn {
     display: block;
@@ -1515,8 +1544,15 @@ body.search-open {
 }
 
 .thumb {
-    width: 80px; height: 80px; object-fit: cover; border-radius: 8px;
-    border: 2px solid transparent; cursor: pointer; opacity: 0.5; transition: all 0.3s ease;
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.3s ease, border-color 0.3s ease;
+    background: #f0f0f0;
 }
 .thumb:hover, .thumb.active-thumb { opacity: 1; border-color: var(--gold); }
 
