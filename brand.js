@@ -379,14 +379,91 @@ async function loadHomepageProducts() {
 loadHomepageProducts();
 upgradeStaticProductLinks();
 
+// ========== HERO FONT GATE ==========
+const HERO_FONT_TIMEOUT_MS = 2200;
+
+function initHeroFontGate() {
+    const hero = document.querySelector('.hero');
+    if (!hero) return;
+
+    let revealed = false;
+
+    function revealHeroFonts() {
+        if (revealed) return;
+        revealed = true;
+        hero.classList.remove('hero-fonts-loading');
+        hero.classList.add('hero-fonts-ready');
+    }
+
+    if (!hero.classList.contains('hero-fonts-loading')) {
+        hero.classList.add('hero-fonts-loading');
+    }
+
+    function waitForHeroFonts() {
+        if (!document.fonts || typeof document.fonts.load !== 'function') {
+            return Promise.resolve();
+        }
+        return Promise.all([
+            document.fonts.load('400 1em "Bebas Neue"'),
+            document.fonts.load('500 1em "Montserrat"')
+        ]).catch(() => Promise.resolve());
+    }
+
+    Promise.race([
+        waitForHeroFonts().then(() => (document.fonts.ready || Promise.resolve())),
+        new Promise((resolve) => window.setTimeout(resolve, HERO_FONT_TIMEOUT_MS))
+    ]).then(revealHeroFonts);
+}
+
+initHeroFontGate();
+
 // ========== HERO SLIDESHOW ==========
 const slides = document.querySelectorAll('.slide');
 let current = 0;
 
+function hydrateHeroSlide(slideImg) {
+    if (!slideImg || slideImg.dataset.loaded === 'true') return;
+
+    const picture = slideImg.closest('picture[data-lazy-slide]');
+    if (!picture) return;
+
+    picture.querySelectorAll('source[data-srcset]').forEach((source) => {
+        source.srcset = source.dataset.srcset;
+        source.removeAttribute('data-srcset');
+    });
+
+    if (slideImg.dataset.src) {
+        slideImg.src = slideImg.dataset.src;
+        slideImg.removeAttribute('data-src');
+    }
+
+    slideImg.dataset.loaded = 'true';
+}
+
+function preloadHeroSlide(index) {
+    const slideImg = slides[index];
+    if (slideImg) hydrateHeroSlide(slideImg);
+}
+
+function scheduleIdleHeroPreload(index) {
+    const run = () => preloadHeroSlide(index);
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 2500 });
+    } else {
+        window.setTimeout(run, 1500);
+    }
+}
+
 if (slides.length > 0) {
-    setInterval(() => {
+    if (slides.length > 1) {
+        scheduleIdleHeroPreload(1);
+    }
+
+    window.setInterval(() => {
+        const next = (current + 1) % slides.length;
+        preloadHeroSlide(next);
         slides[current].classList.remove('active');
-        current = (current + 1) % slides.length;
+        current = next;
         slides[current].classList.add('active');
     }, 4000);
 }
