@@ -267,6 +267,28 @@ async function fetchCatalogProducts() {
     }
 }
 
+function getProductPageHref(product) {
+    if (!product) return '';
+    const slug = product.slug;
+    if (slug != null && String(slug).trim() !== '') {
+        return `product.html?slug=${encodeURIComponent(slug)}`;
+    }
+    const id = product.id;
+    if (id != null && id !== '') {
+        return `product.html?id=${encodeURIComponent(id)}`;
+    }
+    return '';
+}
+
+function getProductPageIdentifier() {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('slug');
+    if (slug != null && String(slug).trim() !== '') return slug.trim();
+    const id = params.get('id');
+    if (id != null && String(id).trim() !== '') return id.trim();
+    return '';
+}
+
 function renderProductCard(product) {
     const identifier = product.slug || product.id;
     const name = product.name || 'AFIFI PRODUCT';
@@ -274,19 +296,26 @@ function renderProductCard(product) {
     const image = getProductImage(product);
     const price = formatPrice(product.base_price);
     const badge = product.badge ? escapeHtml(product.badge) : '';
-    const href = `product.html?id=${encodeURIComponent(identifier)}`;
+    const href = getProductPageHref(product);
 
     const card = document.createElement('div');
     card.className = 'product-card';
     if (identifier) card.dataset.id = identifier;
 
+    const imageLink = href
+        ? `<a href="${href}"><img src="${image}" alt="${safeName}" loading="lazy"></a>`
+        : `<img src="${image}" alt="${safeName}" loading="lazy">`;
+    const titleLink = href
+        ? `<h4><a href="${href}">${safeName}</a></h4>`
+        : `<h4>${safeName}</h4>`;
+
     card.innerHTML = `
         <div class="product-img">
             ${badge ? `<span class="product-badge">${badge}</span>` : ''}
-            <a href="${href}"><img src="${image}" alt="${safeName}" loading="lazy"></a>
+            ${imageLink}
             <button class="wishlist" aria-label="Add ${safeName} to wishlist">&hearts;</button>
         </div>
-        <div class="product-info"><h4><a href="${href}">${safeName}</a></h4><p>${price}</p></div>
+        <div class="product-info">${titleLink}<p>${price}</p></div>
     `;
 
     return card;
@@ -400,8 +429,8 @@ if (hamburger && navMenu) {
 
 document.documentElement.style.scrollBehavior = 'smooth';
 
-// ========== PRODUCT PAGE: STABLE PRODUCT ID (from ?id=) ==========
-const productPageId = new URLSearchParams(window.location.search).get('id');
+// ========== PRODUCT PAGE: STABLE PRODUCT ID (from ?slug= or ?id=) ==========
+const productPageIdentifier = getProductPageIdentifier();
 let productPageData = { variants: [] };
 
 // ========== PRODUCT PAGE: THUMBNAIL SWITCHING ==========
@@ -639,7 +668,7 @@ if (addToCartBtn) {
         const price = (selectedVariant && selectedVariant.price_override) || productPageData.base_price || addToCartBtn.dataset.price || 0;
 
         const result = await addCartItem({
-            productId: productPageData.id || productPageId || addToCartBtn.dataset.id || name,
+            productId: productPageData.id || productPageIdentifier || addToCartBtn.dataset.id || name,
             variantId: selectedVariant ? selectedVariant.id : '',
             name,
             price: Number(price) || 0,
@@ -814,15 +843,62 @@ function renderRelatedProducts(currentProduct, allProducts) {
     container.querySelectorAll('.wishlist').forEach(wireWishlistButton);
 }
 
+function showProductNotFoundState(message) {
+    const info = document.querySelector('.product-details-info');
+    if (!info) return;
+
+    document.title = 'AFIFI | Product Not Found';
+
+    const breadcrumbCurrent = document.querySelector('.breadcrumbs-section > span:last-of-type');
+    if (breadcrumbCurrent) breadcrumbCurrent.textContent = 'Product not found';
+
+    const h1 = info.querySelector('h1');
+    if (h1) h1.textContent = 'Product not found';
+
+    const priceEl = info.querySelector('.product-price');
+    if (priceEl) priceEl.textContent = '';
+
+    const descEl = info.querySelector('.product-desc');
+    if (descEl) {
+        descEl.textContent = message || 'This product could not be found. Browse the shop to discover available items.';
+    }
+
+    info.querySelectorAll('.color-options, .size-options, .quantity-selector, .add-to-cart, .whatsapp-order, .add-wishlist, .purchase-notes')
+        .forEach(el => { el.style.display = 'none'; });
+
+    const gallery = document.querySelector('.product-gallery');
+    if (gallery) gallery.style.display = 'none';
+
+    const tabs = document.querySelector('.product-tabs');
+    if (tabs) tabs.style.display = 'none';
+
+    const related = document.querySelector('.related-products');
+    if (related) related.style.display = 'none';
+
+    if (!info.querySelector('.product-back-link')) {
+        const backLink = document.createElement('a');
+        backLink.className = 'story-btn product-back-link';
+        backLink.href = 'shop.html';
+        backLink.textContent = 'BACK TO SHOP \u203a';
+        info.appendChild(backLink);
+    }
+}
+
 async function loadProductDetails() {
-    if (!productPageId) return;
+    if (!document.querySelector('.product-details-info')) return;
+
+    if (!productPageIdentifier) {
+        showProductNotFoundState('No product was specified. Choose a product from the shop or homepage.');
+        return;
+    }
 
     try {
         const products = await fetchCatalogProducts();
-        const matched = findProductBySlugOrId(products, productPageId);
+        const matched = findProductBySlugOrId(products, productPageIdentifier);
 
         if (!matched) {
-            console.warn(`AFIFI: no product found for id "${productPageId}", keeping static content.`);
+            console.warn(`AFIFI: no product found for "${productPageIdentifier}".`);
+            showProductNotFoundState(`We couldn't find a product matching "${productPageIdentifier}".`);
             return;
         }
 
@@ -909,7 +985,8 @@ async function loadProductDetails() {
         renderColorSwatches(colors);
         renderRelatedProducts(matched, products);
     } catch (error) {
-        console.warn('AFIFI: could not load product details from API, keeping static content.', error);
+        console.warn('AFIFI: could not load product details from API.', error);
+        showProductNotFoundState('Unable to load product details right now. Please try again later.');
     }
 }
 
@@ -1542,7 +1619,7 @@ function saveWishlist() {
 
 function getWishlistKey(btn) {
     const card = btn.closest('.product-card');
-    const stableId = (card && card.dataset.id) || btn.dataset.id || (!card && productPageId);
+    const stableId = (card && card.dataset.id) || btn.dataset.id || (!card && productPageIdentifier);
     if (stableId) return stableId;
     const label = btn.getAttribute('aria-label');
     if (label) return label.replace(/^Add /, '').replace(/ to wishlist$/i, '').trim();
