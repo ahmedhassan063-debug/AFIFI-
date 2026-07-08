@@ -2190,6 +2190,16 @@ body.drawer-open {
     letter-spacing: 2px;
 }
 
+.wishlist-merge-warning {
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #6b4a12;
+    background: #fff7e8;
+    border-bottom: 1px solid #f0dfc0;
+}
+
 .wishlist-close {
     border: 0;
     background: none;

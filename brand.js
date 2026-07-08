@@ -1623,6 +1623,7 @@ async function handleLogout() {
     apiCartItems = [];
     apiWishlistItems = [];
     cartItems = readGuestCartFromStorage();
+    wishlistItems = readGuestWishlistFromStorage();
     updateAuthUI();
     renderCart();
 }
@@ -1816,7 +1817,13 @@ function createAuthModal() {
             showCartMergeWarning('Some cart items may not have synced. They remain saved on this device.');
             await loadApiCart();
         }
-        loadApiWishlist();
+        try {
+            await mergeGuestWishlistIntoApiWishlist();
+        } catch (error) {
+            console.warn('AFIFI: guest wishlist merge failed after auth.', error);
+            showWishlistMergeWarning('Some wishlist items may not have synced. They remain saved on this device.');
+            await loadApiWishlist();
+        }
         setTimeout(closeModal, 900);
     }
 
@@ -2580,13 +2587,17 @@ async function getWishlistDisplayItems() {
     }
 }
 
+async function refreshApiWishlistFromServer() {
+    const response = await window.afifiApi.apiRequest('/wishlist');
+    const wishlist = response && response.data;
+    const items = (wishlist && wishlist.items) || [];
+    apiWishlistItems = Array.isArray(items) ? items : [];
+}
+
 async function loadApiWishlist() {
     if (!isLoggedIn()) return;
     try {
-        const response = await window.afifiApi.apiRequest('/wishlist');
-        const wishlist = response && response.data;
-        const items = (wishlist && wishlist.items) || [];
-        apiWishlistItems = Array.isArray(items) ? items : [];
+        await refreshApiWishlistFromServer();
     } catch (error) {
         console.warn('AFIFI: failed to load wishlist from server.', error);
         apiWishlistItems = [];
@@ -2596,11 +2607,143 @@ async function loadApiWishlist() {
     renderWishlist();
 }
 
+async function postApiWishlistItem(productId, productVariantId) {
+    const body = { product_id: Number(productId) };
+    if (productVariantId) body.product_variant_id = Number(productVariantId);
+    await window.afifiApi.apiRequest('/wishlist/items', { method: 'POST', body });
+}
+
+function readGuestWishlistFromStorage() {
+    try {
+        const raw = localStorage.getItem('afifiWishlist');
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .map(key => String(key == null ? '' : key).trim())
+            .filter(Boolean);
+    } catch (error) {
+        console.warn('AFIFI: could not parse guest wishlist from localStorage.', error);
+        return [];
+    }
+}
+
+function clearGuestWishlistStorage() {
+    wishlistItems = [];
+    try {
+        localStorage.removeItem('afifiWishlist');
+    } catch (error) {
+        console.warn('AFIFI: could not clear guest wishlist from localStorage.', error);
+    }
+}
+
+function isGuestWishlistKeyInApi(key, product) {
+    return apiWishlistItems.some(item => {
+        const apiProduct = item.product || {};
+        if (product) {
+            return apiProduct.id === product.id
+                || (apiProduct.slug && apiProduct.slug === product.slug);
+        }
+        return apiProduct.slug === key || String(apiProduct.id) === String(key);
+    });
+}
+
+function showWishlistMergeWarning(message) {
+    if (!message) return;
+    const panel = document.querySelector('.wishlist-panel');
+    if (!panel) {
+        console.warn('AFIFI wishlist merge:', message);
+        return;
+    }
+    let banner = panel.querySelector('.wishlist-merge-warning');
+    if (!banner) {
+        banner = document.createElement('p');
+        banner.className = 'wishlist-merge-warning';
+        banner.setAttribute('role', 'status');
+        const itemsWrap = panel.querySelector('.wishlist-items');
+        if (itemsWrap) panel.insertBefore(banner, itemsWrap);
+        else panel.appendChild(banner);
+    }
+    banner.textContent = message;
+    banner.hidden = false;
+}
+
+async function mergeGuestWishlistIntoApiWishlist() {
+    if (!isLoggedIn()) return { mergedCount: 0, failedKeys: [] };
+
+    const guestKeys = [...new Set(readGuestWishlistFromStorage())];
+    if (guestKeys.length === 0) {
+        await loadApiWishlist();
+        return { mergedCount: 0, failedKeys: [] };
+    }
+
+    try {
+        await refreshApiWishlistFromServer();
+    } catch (error) {
+        console.warn('AFIFI: could not load account wishlist for guest merge.', error);
+        showWishlistMergeWarning('Could not load your account wishlist. Guest wishlist items were kept on this device.');
+        updateWishlistBadge();
+        document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
+        renderWishlist();
+        return { mergedCount: 0, failedKeys: guestKeys };
+    }
+
+    let products = [];
+    try {
+        products = await fetchCatalogProducts();
+    } catch (error) {
+        console.warn('AFIFI: could not resolve guest wishlist products.', error);
+        showWishlistMergeWarning('Could not resolve guest wishlist products. Items remain saved on this device.');
+        updateWishlistBadge();
+        document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
+        renderWishlist();
+        return { mergedCount: 0, failedKeys: guestKeys };
+    }
+
+    const failedKeys = [];
+    let mergedCount = 0;
+
+    for (const key of guestKeys) {
+        const product = findProductBySlugOrId(products, key);
+        if (!product) {
+            failedKeys.push(key);
+            continue;
+        }
+
+        if (isGuestWishlistKeyInApi(key, product)) {
+            mergedCount += 1;
+            continue;
+        }
+
+        try {
+            await postApiWishlistItem(product.id);
+            await refreshApiWishlistFromServer();
+            mergedCount += 1;
+        } catch (error) {
+            console.warn('AFIFI: failed to merge guest wishlist item.', key, error);
+            failedKeys.push(key);
+        }
+    }
+
+    if (failedKeys.length === 0) {
+        clearGuestWishlistStorage();
+    } else {
+        wishlistItems = failedKeys;
+        saveWishlist();
+        showWishlistMergeWarning(
+            `${failedKeys.length} wishlist item(s) could not be added to your account and remain saved on this device.`
+        );
+    }
+
+    updateWishlistBadge();
+    document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
+    renderWishlist();
+    return { mergedCount, failedKeys };
+}
+
 async function addApiWishlistItem(productId, productVariantId) {
     try {
-        const body = { product_id: Number(productId) };
-        if (productVariantId) body.product_variant_id = Number(productVariantId);
-        await window.afifiApi.apiRequest('/wishlist/items', { method: 'POST', body });
+        await postApiWishlistItem(productId, productVariantId);
         await loadApiWishlist();
         return { success: true };
     } catch (error) {
@@ -2793,7 +2936,7 @@ updateWishlistBadge();
 createWishlistPanel();
 
 if (isLoggedIn()) {
-    loadApiWishlist();
+    void mergeGuestWishlistIntoApiWishlist();
 }
 
 // ========== NEWSLETTER FEEDBACK ==========
