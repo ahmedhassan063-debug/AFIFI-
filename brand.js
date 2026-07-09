@@ -317,9 +317,10 @@ function renderProductCard(product) {
     const price = formatPrice(product.base_price);
     const badge = product.badge ? escapeHtml(product.badge) : '';
     const href = getProductPageHref(product);
+    const soldOut = isProductFullySoldOut(product);
 
     const card = document.createElement('div');
-    card.className = 'product-card';
+    card.className = 'product-card' + (soldOut ? ' product-card--sold-out' : '');
     if (identifier) card.dataset.id = identifier;
 
     const imageLink = href
@@ -328,10 +329,12 @@ function renderProductCard(product) {
     const titleLink = href
         ? `<h4><a href="${href}">${safeName}</a></h4>`
         : `<h4>${safeName}</h4>`;
+    const soldOutBadge = soldOut ? '<span class="product-badge product-badge-sold-out">SOLD OUT</span>' : '';
 
     card.innerHTML = `
         <div class="product-img">
-            ${badge ? `<span class="product-badge">${badge}</span>` : ''}
+            ${badge && !soldOut ? `<span class="product-badge">${badge}</span>` : ''}
+            ${soldOutBadge}
             ${imageLink}
             <button class="wishlist" aria-label="Add ${safeName} to wishlist">&hearts;</button>
         </div>
@@ -842,6 +845,7 @@ function wireSizeButton(btn) {
         });
         btn.classList.add('active');
         btn.setAttribute('aria-pressed', 'true');
+        updateProductPageStockState();
     });
 }
 
@@ -856,6 +860,7 @@ function wireColorSwatch(swatch) {
         });
         swatch.classList.add('active');
         swatch.setAttribute('aria-pressed', 'true');
+        updateProductPageStockState();
     });
 }
 
@@ -872,10 +877,21 @@ if (qtyMinus && qtyPlus && qtyValue) {
         if (val > 1) qtyValue.textContent = val - 1;
     });
     qtyPlus.addEventListener('click', () => {
+        const selectedVariant = typeof getSelectedVariant === 'function' ? getSelectedVariant() : null;
+        const maxQty = selectedVariant
+            ? getCartItemMaxQuantity({ stock: selectedVariant.stock })
+            : CART_MAX_QUANTITY;
         const val = parseInt(qtyValue.textContent, 10);
-        if (val < 10) qtyValue.textContent = val + 1;
+        if (val < maxQty) qtyValue.textContent = val + 1;
     });
 }
+
+document.querySelector('.whatsapp-order')?.addEventListener('click', (event) => {
+    const link = event.currentTarget;
+    if (link.classList.contains('is-disabled') || link.getAttribute('aria-disabled') === 'true') {
+        event.preventDefault();
+    }
+});
 
 // ========== PRODUCT PAGE: TABS ==========
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1144,21 +1160,45 @@ const addToCartBtn = document.querySelector('.add-to-cart');
 
 if (addToCartBtn) {
     addToCartBtn.addEventListener('click', async () => {
+        if (addToCartBtn.disabled) return;
+
         const activeSize = document.querySelector('.size-btn.active');
         const activeColor = document.querySelector('.color-swatch.active');
         const mainImg = document.getElementById('mainProductImg');
         const qtySelector = document.getElementById('qtyValue');
         const cartLiveRegion = document.getElementById('cartLiveRegion');
         const selectedVariant = getSelectedVariant();
+
+        if (!selectedVariant) {
+            const message = 'Please select product options before adding to cart.';
+            if (cartLiveRegion) cartLiveRegion.textContent = message;
+            return;
+        }
+
+        if (!isVariantInStock(selectedVariant)) {
+            const message = 'Selected option is sold out.';
+            if (cartLiveRegion) cartLiveRegion.textContent = message;
+            updateProductPageStockState();
+            return;
+        }
+
         const name = productPageData.name || addToCartBtn.dataset.name || 'AFIFI PRODUCT';
         const price = (selectedVariant && selectedVariant.price_override) || productPageData.base_price || addToCartBtn.dataset.price || 0;
+        const requestedQty = Number(qtySelector ? qtySelector.textContent : 1) || 1;
+        const maxQty = getCartItemMaxQuantity({ stock: selectedVariant.stock });
+
+        if (requestedQty > maxQty) {
+            const message = maxQty <= 0 ? 'This option is sold out.' : `Only ${maxQty} available in stock.`;
+            if (cartLiveRegion) cartLiveRegion.textContent = message;
+            return;
+        }
 
         const result = await addCartItem({
             productId: productPageData.id || productPageIdentifier || addToCartBtn.dataset.id || name,
             variantId: selectedVariant ? selectedVariant.id : '',
             name,
             price: Number(price) || 0,
-            quantity: Number(qtySelector ? qtySelector.textContent : 1) || 1,
+            quantity: requestedQty,
             size: activeSize ? activeSize.textContent.trim() : '',
             color: activeColor ? (activeColor.getAttribute('title') || '') : '',
             image: mainImg ? mainImg.src : '',
@@ -1189,6 +1229,7 @@ if (addToCartBtn) {
             addToCartBtn.textContent = 'ADD TO CART';
             addToCartBtn.style.background = '';
             addToCartBtn.style.color = '';
+            updateProductPageStockState();
         }, 2000);
     });
 }
@@ -1212,19 +1253,159 @@ function findProductBySlugOrId(products, identifier) {
     return products.find(p => p.slug === identifier || String(p.id) === String(identifier)) || null;
 }
 
+function getProductVariants(product) {
+    return Array.isArray(product && product.variants) ? product.variants : [];
+}
+
+function normalizeStockValue(stock) {
+    if (stock == null || stock === '') return null;
+    const value = Number(stock);
+    return Number.isFinite(value) ? value : null;
+}
+
+function isVariantInStock(variant) {
+    const stock = normalizeStockValue(variant && variant.stock);
+    if (stock === null) return true;
+    return stock > 0;
+}
+
+function isProductFullySoldOut(product) {
+    const variants = getProductVariants(product);
+    if (variants.length === 0) return false;
+    return variants.every(variant => !isVariantInStock(variant));
+}
+
 function getSelectedVariant() {
-    if (!Array.isArray(productPageData.variants) || productPageData.variants.length === 0) return null;
+    const variants = Array.isArray(productPageData.variants) ? productPageData.variants : [];
+    if (variants.length === 0) return null;
+    if (variants.length === 1) return variants[0];
+
+    const sizeWrapper = document.querySelector('.size-options');
+    const colorWrapper = document.querySelector('.color-options');
+    const hasSizeOptions = Boolean(
+        sizeWrapper
+        && sizeWrapper.style.display !== 'none'
+        && sizeWrapper.querySelector('.size-btn')
+    );
+    const hasColorOptions = Boolean(
+        colorWrapper
+        && colorWrapper.style.display !== 'none'
+        && colorWrapper.querySelector('.color-swatch')
+    );
+
+    if (!hasSizeOptions && !hasColorOptions) {
+        return variants.length === 1 ? variants[0] : null;
+    }
 
     const activeSizeBtn = document.querySelector('.size-btn.active');
     const activeColorSwatch = document.querySelector('.color-swatch.active');
     const sizeId = activeSizeBtn ? activeSizeBtn.dataset.sizeId : '';
     const colorId = activeColorSwatch ? activeColorSwatch.dataset.colorId : '';
 
-    return productPageData.variants.find(variant => {
-        const sizeMatches = !sizeId || String(variant.size_id) === String(sizeId);
-        const colorMatches = !colorId || String(variant.color_id) === String(colorId);
+    if (hasSizeOptions && !sizeId) return null;
+    if (hasColorOptions && !colorId) return null;
+
+    return variants.find(variant => {
+        const sizeMatches = !hasSizeOptions || String(variant.size_id) === String(sizeId);
+        const colorMatches = !hasColorOptions || String(variant.color_id) === String(colorId);
         return sizeMatches && colorMatches;
     }) || null;
+}
+
+function ensureProductStockStatusElement() {
+    let statusEl = document.getElementById('productStockStatus');
+    if (statusEl) return statusEl;
+
+    statusEl = document.createElement('p');
+    statusEl.id = 'productStockStatus';
+    statusEl.className = 'product-stock-status';
+    statusEl.setAttribute('role', 'status');
+    statusEl.setAttribute('aria-live', 'polite');
+    statusEl.hidden = true;
+
+    const priceEl = document.querySelector('.product-price');
+    if (priceEl) priceEl.insertAdjacentElement('afterend', statusEl);
+    else {
+        const info = document.querySelector('.product-details-info');
+        if (info) info.insertBefore(statusEl, info.querySelector('.color-options'));
+    }
+    return statusEl;
+}
+
+function updateProductPageStockState() {
+    if (!document.querySelector('.product-details-info')) return;
+
+    const variants = Array.isArray(productPageData.variants) ? productPageData.variants : [];
+    const fullySoldOut = variants.length > 0 && variants.every(variant => !isVariantInStock(variant));
+    const selectedVariant = getSelectedVariant();
+    const variantSoldOut = Boolean(selectedVariant && !isVariantInStock(selectedVariant));
+    const needsSelection = variants.length > 1 && !selectedVariant;
+    const maxQty = selectedVariant
+        ? getCartItemMaxQuantity({ stock: selectedVariant.stock })
+        : (fullySoldOut ? 0 : CART_MAX_QUANTITY);
+    const disablePurchase = fullySoldOut || variantSoldOut || needsSelection;
+
+    const statusEl = ensureProductStockStatusElement();
+    if (fullySoldOut) {
+        statusEl.textContent = 'Sold Out';
+        statusEl.className = 'product-stock-status is-sold-out';
+        statusEl.hidden = false;
+    } else if (needsSelection) {
+        statusEl.textContent = 'Select options to check availability';
+        statusEl.className = 'product-stock-status';
+        statusEl.hidden = false;
+    } else if (variantSoldOut) {
+        statusEl.textContent = 'Selected option is sold out';
+        statusEl.className = 'product-stock-status is-sold-out';
+        statusEl.hidden = false;
+    } else if (selectedVariant) {
+        const stock = normalizeStockValue(selectedVariant.stock);
+        if (stock !== null && stock <= 5) {
+            statusEl.textContent = stock === 1 ? 'Only 1 left in stock' : `Only ${stock} left in stock`;
+            statusEl.className = 'product-stock-status is-low-stock';
+            statusEl.hidden = false;
+        } else {
+            statusEl.hidden = true;
+        }
+    } else {
+        statusEl.hidden = true;
+    }
+
+    if (addToCartBtn) {
+        addToCartBtn.disabled = disablePurchase;
+        if (fullySoldOut || variantSoldOut) {
+            addToCartBtn.textContent = 'SOLD OUT';
+        } else if (addToCartBtn.textContent === 'SOLD OUT') {
+            addToCartBtn.textContent = 'ADD TO CART';
+        }
+    }
+
+    if (qtyPlus) qtyPlus.disabled = disablePurchase || maxQty <= 1;
+    if (qtyMinus) qtyMinus.disabled = disablePurchase;
+    if (qtyValue) {
+        if (disablePurchase) {
+            qtyValue.textContent = '1';
+        } else if (maxQty > 0) {
+            const val = parseInt(qtyValue.textContent, 10) || 1;
+            if (val > maxQty) qtyValue.textContent = String(maxQty);
+            if (val < 1) qtyValue.textContent = '1';
+        }
+    }
+
+    const whatsappOrderLink = document.querySelector('.whatsapp-order');
+    if (whatsappOrderLink) {
+        whatsappOrderLink.hidden = false;
+        whatsappOrderLink.classList.toggle('is-disabled', disablePurchase);
+        whatsappOrderLink.setAttribute('aria-disabled', disablePurchase ? 'true' : 'false');
+        if (!disablePurchase && productPageData.name) {
+            const price = (selectedVariant && selectedVariant.price_override)
+                || productPageData.base_price
+                || addToCartBtn?.dataset.price
+                || 0;
+            const message = `Hello AFIFI, I want to order ${productPageData.name} - ${formatPrice(price)}`;
+            whatsappOrderLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+        }
+    }
 }
 
 function renderSizeButtons(sizes) {
@@ -1238,6 +1419,7 @@ function renderSizeButtons(sizes) {
         // could confuse users or interfere with variant matching.
         container.innerHTML = '';
         if (wrapper) wrapper.style.display = 'none';
+        updateProductPageStockState();
         return;
     }
 
@@ -1252,6 +1434,7 @@ function renderSizeButtons(sizes) {
         container.appendChild(btn);
         wireSizeButton(btn);
     });
+    updateProductPageStockState();
 }
 
 function renderColorSwatches(colors) {
@@ -1265,6 +1448,7 @@ function renderColorSwatches(colors) {
         // could confuse users or interfere with variant matching.
         container.innerHTML = '';
         if (wrapper) wrapper.style.display = 'none';
+        updateProductPageStockState();
         return;
     }
 
@@ -1283,6 +1467,7 @@ function renderColorSwatches(colors) {
         container.appendChild(swatch);
         wireColorSwatch(swatch);
     });
+    updateProductPageStockState();
 }
 
 function renderThumbnails(images, productName) {
@@ -1401,11 +1586,7 @@ function revealProductDetailUI(matched) {
     const mainImg = document.getElementById('mainProductImg');
     if (mainImg) mainImg.alt = matched.name || 'Product image';
 
-    if (addToCartBtn) addToCartBtn.disabled = false;
-
-    const whatsappOrderLink = document.querySelector('.whatsapp-order');
     const addWishlistLink = document.querySelector('.add-wishlist');
-    if (whatsappOrderLink) whatsappOrderLink.hidden = false;
     if (addWishlistLink) addWishlistLink.hidden = false;
 
     const related = document.querySelector('.related-products');
@@ -1533,6 +1714,7 @@ async function loadProductDetails() {
         renderRelatedProducts(matched, products);
         revealProductDetailUI(matched);
         updateProductDescriptionTab(matched);
+        updateProductPageStockState();
     } catch (error) {
         console.warn('AFIFI: could not load product details from API.', error);
         showProductNotFoundState('Unable to load product details right now. Please try again later.');
@@ -1912,11 +2094,24 @@ function normalizeCartItem(raw) {
 }
 
 function getCartItemMaxQuantity(item) {
-    const stock = Number(item && item.stock);
-    if (Number.isFinite(stock) && stock > 0) {
-        return Math.min(stock, CART_MAX_QUANTITY);
+    const stock = normalizeStockValue(item && item.stock);
+    if (stock === null) return CART_MAX_QUANTITY;
+    if (stock <= 0) return 0;
+    return Math.min(stock, CART_MAX_QUANTITY);
+}
+
+function getLookupVariantDetails(lookupMap, variantId) {
+    if (!lookupMap || variantId == null || variantId === '') return null;
+    return lookupMap.get(Number(variantId)) || lookupMap.get(String(variantId)) || null;
+}
+
+function applyStockToCartItem(item, lookupMap) {
+    if (!item || !item.variantId) return item;
+    const details = getLookupVariantDetails(lookupMap, item.variantId);
+    if (details && details.stock != null) {
+        item.stock = Number(details.stock);
     }
-    return CART_MAX_QUANTITY;
+    return item;
 }
 
 let cartItems = (JSON.parse(localStorage.getItem('afifiCart') || '[]')).map(normalizeCartItem);
@@ -1926,6 +2121,11 @@ let cartItems = (JSON.parse(localStorage.getItem('afifiCart') || '[]')).map(norm
 // Logged-in users are backed by `apiCartItems`, hydrated from GET /cart.
 let apiCartItems = [];
 let productLookupMapCache = null;
+
+function invalidateCatalogStockCache() {
+    catalogProductsCache = null;
+    productLookupMapCache = null;
+}
 
 function getActiveCartItems() {
     return isLoggedIn() ? apiCartItems : cartItems;
@@ -1957,7 +2157,9 @@ async function getProductLookupMap() {
 
 function normalizeApiCartItem(item, lookupMap) {
     const variant = item.product_variant || {};
-    const details = lookupMap.get(variant.id);
+    const details = getLookupVariantDetails(lookupMap, variant.id);
+    const stockFromLookup = details && details.stock != null ? Number(details.stock) : null;
+    const stockFromVariant = variant.stock != null ? Number(variant.stock) : null;
     return {
         id: `api-${item.id}`,
         apiCartItemId: item.id,
@@ -1969,7 +2171,7 @@ function normalizeApiCartItem(item, lookupMap) {
         size: (details && details.size) || '',
         color: (details && details.color) || '',
         image: (details && details.image) || '',
-        stock: variant.stock != null ? Number(variant.stock) : ((details && details.stock != null) ? Number(details.stock) : null)
+        stock: stockFromLookup != null ? stockFromLookup : stockFromVariant
     };
 }
 
@@ -2205,9 +2407,27 @@ async function addApiCartItem(details) {
     if (!details.variantId) {
         return { success: false, message: 'Please select a product option first.' };
     }
+
+    const lookupMap = await getProductLookupMap();
+    const variantDetails = getLookupVariantDetails(lookupMap, details.variantId);
+    const stock = variantDetails && variantDetails.stock != null
+        ? Number(variantDetails.stock)
+        : normalizeStockValue(details.stock);
+    const maxQty = getCartItemMaxQuantity({ stock });
+    if (maxQty <= 0) {
+        return { success: false, message: 'This option is sold out.' };
+    }
+
+    const existing = apiCartItems.find(item => String(item.variantId) === String(details.variantId));
+    const requestedQty = (existing ? existing.quantity : 0) + (Number(details.quantity) || 1);
+    if (requestedQty > maxQty) {
+        return { success: false, message: `Only ${maxQty} available in stock.` };
+    }
+
     try {
         await postApiCartItem(details.variantId, details.quantity);
-        await loadApiCart();
+        await refreshApiCartFromServer();
+        renderCart();
         return { success: true };
     } catch (error) {
         console.warn('AFIFI: failed to add item to cart via API.', error);
@@ -2215,10 +2435,17 @@ async function addApiCartItem(details) {
     }
 }
 
-async function updateApiCartItemQuantity(cartItemId, quantity) {
+async function updateApiCartItemQuantity(cartItemId, quantity, options = {}) {
+    const reload = options.reload !== false;
     try {
         await putApiCartItemQuantity(cartItemId, quantity);
-        await loadApiCart();
+        if (reload) {
+            await loadApiCart();
+        } else {
+            const item = apiCartItems.find(cartItem => String(cartItem.apiCartItemId) === String(cartItemId));
+            if (item) item.quantity = Number(quantity) || 1;
+            renderCart();
+        }
         return { success: true };
     } catch (error) {
         console.warn('AFIFI: failed to update cart item quantity via API.', error);
@@ -2226,10 +2453,16 @@ async function updateApiCartItemQuantity(cartItemId, quantity) {
     }
 }
 
-async function removeApiCartItem(cartItemId) {
+async function removeApiCartItem(cartItemId, options = {}) {
+    const reload = options.reload !== false;
     try {
         await window.afifiApi.apiRequest(`/cart/items/${cartItemId}`, { method: 'DELETE' });
-        await loadApiCart();
+        if (reload) {
+            await loadApiCart();
+        } else {
+            apiCartItems = apiCartItems.filter(item => String(item.apiCartItemId) !== String(cartItemId));
+            renderCart();
+        }
     } catch (error) {
         console.warn('AFIFI: failed to remove cart item via API.', error);
     }
@@ -2255,7 +2488,7 @@ async function changeCartItemQuantity(item, index, delta) {
 
     if (newQuantity < 1) {
         if (isLoggedIn() && item.apiCartItemId) {
-            await removeApiCartItem(item.apiCartItemId);
+            await removeApiCartItem(item.apiCartItemId, { reload: false });
         } else {
             cartItems.splice(index, 1);
             saveCart();
@@ -2265,10 +2498,11 @@ async function changeCartItemQuantity(item, index, delta) {
     }
 
     const maxQuantity = getCartItemMaxQuantity(item);
-    if (newQuantity > maxQuantity) return;
+    if (maxQuantity <= 0 || newQuantity > maxQuantity) return;
 
     if (isLoggedIn() && item.apiCartItemId) {
-        await updateApiCartItemQuantity(item.apiCartItemId, newQuantity);
+        const result = await updateApiCartItemQuantity(item.apiCartItemId, newQuantity, { reload: false });
+        if (result && result.success === false) return;
         return;
     }
 
@@ -2280,19 +2514,70 @@ async function changeCartItemQuantity(item, index, delta) {
 }
 
 async function addCartItem(details) {
+    const item = normalizeCartItem(details);
+    if (!item.variantId) {
+        return { success: false, message: 'Please select a product option first.' };
+    }
+
+    const maxQty = getCartItemMaxQuantity(item);
+    if (maxQty <= 0) {
+        return { success: false, message: 'This option is sold out.' };
+    }
+
     if (isLoggedIn()) {
         return addApiCartItem(details);
     }
-    const item = normalizeCartItem(details);
+
     const existing = cartItems.find(cartItem => cartItem.id === item.id);
+    const requestedQty = (existing ? existing.quantity : 0) + item.quantity;
+    if (requestedQty > maxQty) {
+        return { success: false, message: `Only ${maxQty} available in stock.` };
+    }
+
     if (existing) {
-        existing.quantity += item.quantity;
+        existing.quantity = requestedQty;
+        existing.stock = item.stock;
     } else {
         cartItems.push(item);
     }
     saveCart();
     renderCart();
     return { success: true };
+}
+
+function getCartItemDisplayState(item) {
+    const maxQuantity = getCartItemMaxQuantity(item);
+    if (maxQuantity <= 0) {
+        return {
+            maxQuantity: 0,
+            unavailable: true,
+            warning: 'This item is sold out. Remove it to continue checkout.'
+        };
+    }
+    if (item.quantity > maxQuantity) {
+        return {
+            maxQuantity,
+            unavailable: true,
+            warning: `Only ${maxQuantity} left in stock. Reduce quantity to continue checkout.`
+        };
+    }
+    return { maxQuantity, unavailable: false, warning: '' };
+}
+
+async function prepareCartDrawer() {
+    try {
+        invalidateCatalogStockCache();
+        if (isLoggedIn()) {
+            await refreshApiCartFromServer();
+        } else {
+            const lookupMap = await getProductLookupMap();
+            cartItems.forEach(item => applyStockToCartItem(item, lookupMap));
+            saveCart();
+        }
+    } catch (error) {
+        console.warn('AFIFI: could not refresh cart stock.', error);
+    }
+    renderCart();
 }
 
 function buildWhatsAppMessage() {
@@ -2324,19 +2609,22 @@ function renderCart() {
             const safeName = escapeHtml(item.name);
             const variant = escapeHtml([item.size, item.color].filter(Boolean).join(' / '));
             const lineTotal = item.price * item.quantity;
-            const maxQuantity = getCartItemMaxQuantity(item);
+            const displayState = getCartItemDisplayState(item);
+            const maxQuantity = displayState.maxQuantity;
             const minusLabel = item.quantity <= 1
                 ? `Remove ${item.name} from cart`
                 : `Decrease quantity of ${item.name}`;
-            const plusDisabled = item.quantity >= maxQuantity;
+            const plusDisabled = displayState.unavailable || item.quantity >= maxQuantity;
+            const itemClass = displayState.unavailable ? ' cart-item--unavailable' : '';
             return `
-            <div class="cart-item">
+            <div class="cart-item${itemClass}">
                 <div class="cart-item-thumb">
                     <img src="${item.image || CART_PLACEHOLDER_IMAGE}" alt="${safeName}" onerror="this.src='${CART_PLACEHOLDER_IMAGE}'">
                 </div>
                 <div class="cart-item-info">
                     <strong>${safeName}</strong>
                     ${variant ? `<span class="cart-item-variant">${variant}</span>` : ''}
+                    ${displayState.warning ? `<span class="cart-item-stock-warning">${escapeHtml(displayState.warning)}</span>` : ''}
                     <div class="cart-item-qty-row">
                         <span class="cart-item-unit-price">${formatPrice(item.price)} each</span>
                         <div class="cart-qty-controls" role="group" aria-label="Quantity for ${safeName}">
@@ -2356,9 +2644,10 @@ function renderCart() {
     const total = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     totalWrap.textContent = `${total} EGP`;
 
+    const hasUnavailableItems = activeItems.some(item => getCartItemDisplayState(item).unavailable);
     const isEmpty = activeItems.length === 0;
-    if (isEmpty) {
-        checkoutLink.textContent = 'Cart is empty';
+    if (isEmpty || hasUnavailableItems) {
+        checkoutLink.textContent = hasUnavailableItems ? 'Resolve stock issues to checkout' : 'Cart is empty';
         checkoutLink.href = '#';
         checkoutLink.setAttribute('aria-disabled', 'true');
         checkoutLink.classList.add('is-disabled');
@@ -2405,7 +2694,8 @@ function createCartPanel() {
 
     const checkoutLink = panel.querySelector('.cart-checkout');
     checkoutLink.addEventListener('click', (event) => {
-        if (getActiveCartItems().length === 0) {
+        const activeItems = getActiveCartItems();
+        if (activeItems.length === 0 || activeItems.some(item => getCartItemDisplayState(item).unavailable)) {
             event.preventDefault();
         }
     });
@@ -2444,11 +2734,7 @@ function createCartPanel() {
         link.addEventListener('click', (event) => {
             event.preventDefault();
             openDrawerPanel(panel);
-            if (isLoggedIn()) {
-                loadApiCart();
-            } else {
-                renderCart();
-            }
+            void prepareCartDrawer();
         });
     });
 

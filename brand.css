@@ -622,6 +622,45 @@ html body {
     letter-spacing: 1.4px;
 }
 
+.product-badge-sold-out {
+    background: #7a2e2e;
+}
+
+.product-card--sold-out .product-img img {
+    opacity: 0.55;
+}
+
+.product-stock-status {
+    margin: 8px 0 14px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.product-stock-status.is-sold-out {
+    color: #a33;
+}
+
+.product-stock-status.is-low-stock {
+    color: #8a6a1a;
+}
+
+.whatsapp-order.is-disabled {
+    pointer-events: none;
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.add-to-cart:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.qty-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .product-info {
     padding: 12px 4px;
 }
@@ -2011,6 +2050,21 @@ body.drawer-open {
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+
+.cart-item--unavailable {
+    opacity: 0.88;
+    border-color: #f0c8c8;
+    background: #fff8f8;
+}
+
+.cart-item-stock-warning {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: #a33;
+    font-weight: 600;
 }
 
 .cart-item strong {
