@@ -1,8 +1,9 @@
 // ========== API CLIENT (Laravel backend integration layer) ==========
 // Resolves the API base URL without hardcoding an environment:
-// 1) an explicit window.AFIFI_API_BASE_URL override always wins
-// 2) local/dev environments (localhost, 127.0.0.1, file://) use the local API port
-// 3) anything else (real deployment) defaults to same-origin /api
+// 1) window.AFIFI_API_BASE_URL — set in HTML before brand.js (required for split
+//    deployments such as GitHub Pages + separate API host)
+// 2) local/dev (localhost, 127.0.0.1, file://) → http://127.0.0.1:8000/api
+// 3) otherwise → same-origin /api (when API is served from the same domain)
 function resolveApiBaseUrl() {
     if (window.AFIFI_API_BASE_URL) return window.AFIFI_API_BASE_URL;
 
@@ -15,6 +16,7 @@ function resolveApiBaseUrl() {
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
+const API_UNREACHABLE_MESSAGE = 'Unable to connect to the server. Please try again later.';
 const AUTH_TOKEN_KEY = 'afifiAuthToken';
 
 function getAuthToken() {
@@ -38,12 +40,22 @@ class ApiError extends Error {
     }
 }
 
-function apiErrorMessageFor(status) {
+function apiErrorMessageFor(status, data) {
     if (status === 401) return 'Unauthenticated. Please log in.';
     if (status === 403) return 'You do not have permission to do this.';
     if (status === 422) return 'Validation failed.';
     if (status >= 500) return 'Server error. Please try again later.';
-    return 'Request failed.';
+    if (status === 0 || status === 404) return API_UNREACHABLE_MESSAGE;
+    if (data && data.message) return data.message;
+    return API_UNREACHABLE_MESSAGE;
+}
+
+function isNonApiErrorResponse(status, data, contentType) {
+    if (status === 0) return true;
+    const type = contentType || '';
+    if (type.includes('text/html')) return true;
+    if (status === 404 && !(data && data.message)) return true;
+    return false;
 }
 
 async function apiRequest(endpoint, options = {}) {
@@ -71,7 +83,7 @@ async function apiRequest(endpoint, options = {}) {
     try {
         response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
     } catch (networkError) {
-        throw new ApiError('Network error: could not reach the server.', 0, null);
+        throw new ApiError(API_UNREACHABLE_MESSAGE, 0, null);
     }
 
     let data = null;
@@ -82,7 +94,10 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-        const message = (data && data.message) || apiErrorMessageFor(response.status);
+        const contentType = response.headers.get('content-type') || '';
+        const message = isNonApiErrorResponse(response.status, data, contentType)
+            ? API_UNREACHABLE_MESSAGE
+            : ((data && data.message) || apiErrorMessageFor(response.status, data));
         const errors = (data && data.errors) || null;
 
         if (response.status === 401) {
@@ -118,7 +133,8 @@ window.afifiApi = {
     apiRequest,
     getAuthToken,
     setAuthToken,
-    clearAuthToken
+    clearAuthToken,
+    getApiBaseUrl: () => API_BASE_URL
 };
 
 // ========== PUBLIC SETTINGS (Laravel backend integration, step 2) ==========
@@ -344,8 +360,6 @@ function renderProductCard(product) {
     return card;
 }
 
-const HOME_ARRIVALS_SKELETON_COUNT = 6;
-const HOME_BEST_SELLERS_SKELETON_COUNT = 5;
 let homepageRetryInFlight = false;
 let homepageLoadErrorLogged = false;
 
@@ -358,14 +372,6 @@ function getHomepageProductContainers() {
         newArrivalsError: document.getElementById('newArrivalsError'),
         bestSellersError: document.getElementById('bestSellersError')
     };
-}
-
-function createHomeSkeletonCard() {
-    const skeleton = document.createElement('div');
-    skeleton.className = 'shop-skeleton-card';
-    skeleton.setAttribute('aria-hidden', 'true');
-    skeleton.innerHTML = '<div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div>';
-    return skeleton;
 }
 
 function clearHomepageProductSlots(container) {
@@ -385,22 +391,12 @@ function setHomepageSectionPanelLayout(container, isPanel) {
     if (section) section.classList.toggle('has-home-panel', isPanel);
 }
 
-function restoreHomepageSkeletons(container, count, insertBefore) {
-    if (!container) return;
-    clearHomepageProductSlots(container);
-    setHomepageSectionPanelLayout(container, false);
-    const insertRef = insertBefore && insertBefore.parentNode === container ? insertBefore : null;
-    for (let i = 0; i < count; i += 1) {
-        const skeleton = createHomeSkeletonCard();
-        if (insertRef) container.insertBefore(skeleton, insertRef);
-        else container.appendChild(skeleton);
-    }
-}
-
 function setHomepageSectionLoading(container, isLoading) {
     if (!container) return;
     container.classList.toggle('is-loading', isLoading);
     container.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    const loadingPanel = container.querySelector('[data-home-loading]');
+    if (loadingPanel) loadingPanel.hidden = !isLoading;
     if (isLoading) setHomepageSectionPanelLayout(container, false);
     if (container.classList.contains('carousel-track')) {
         const carouselWrapper = container.closest('.carousel-wrapper');
@@ -505,8 +501,8 @@ async function loadHomepageProducts(options = {}) {
         if (homepageRetryInFlight) return;
         homepageRetryInFlight = true;
         setHomepageRetryUi(true);
-        restoreHomepageSkeletons(newArrivalsGrid, HOME_ARRIVALS_SKELETON_COUNT, newArrivalsEmpty || newArrivalsError);
-        restoreHomepageSkeletons(bestSellersTrack, HOME_BEST_SELLERS_SKELETON_COUNT, bestSellersEmpty || bestSellersError);
+        clearHomepageProductSlots(newArrivalsGrid);
+        clearHomepageProductSlots(bestSellersTrack);
     }
 
     setHomepageSectionLoading(newArrivalsGrid, true);
@@ -2307,6 +2303,28 @@ function updateAuthUI() {
     }
 }
 
+const ACCOUNT_ROUTES = {
+    profile: 'profile.html',
+    orders: 'orders.html'
+};
+
+function handleAccountMenuAction(action, closeFn) {
+    if (action === 'logout') {
+        handleLogout();
+        if (closeFn) closeFn();
+        return;
+    }
+    if (action === 'profile' || action === 'orders') {
+        if (!isLoggedIn()) {
+            openAuthModal('login');
+            if (closeFn) closeFn();
+            return;
+        }
+        if (closeFn) closeFn();
+        window.location.href = ACCOUNT_ROUTES[action];
+    }
+}
+
 async function handleLogout() {
     const token = window.afifiApi.getAuthToken();
     if (token) {
@@ -2352,10 +2370,7 @@ function createAccountMenu() {
         const item = e.target.closest('[data-action]');
         if (!item) return;
         e.preventDefault();
-        if (item.dataset.action === 'logout') {
-            handleLogout();
-        }
-        closeMenu();
+        handleAccountMenuAction(item.dataset.action, closeMenu);
     });
 
     document.addEventListener('click', (e) => {
@@ -2426,10 +2441,7 @@ function createMobileAccountSheet() {
         const item = e.target.closest('[data-action]');
         if (!item) return;
         e.preventDefault();
-        if (item.dataset.action === 'logout') {
-            handleLogout();
-        }
-        closeSheet();
+        handleAccountMenuAction(item.dataset.action, closeSheet);
     });
 
     backdrop.addEventListener('click', closeSheet);
@@ -2595,7 +2607,12 @@ function createAuthModal() {
             showWishlistMergeWarning('Some wishlist items may not have synced. They remain saved on this device.');
             await loadApiWishlist();
         }
-        setTimeout(closeModal, 900);
+        setTimeout(() => {
+            closeModal();
+            if (document.body.dataset.accountPage) {
+                window.location.reload();
+            }
+        }, 900);
     }
 
     loginForm.addEventListener('submit', async (e) => {
@@ -3828,3 +3845,482 @@ document.querySelectorAll('.newsletter-form').forEach(form => {
         }, 2200);
     });
 });
+
+// ========== ACCOUNT PAGES ==========
+const ORDER_STATUS_LABELS = {
+    pending_confirmation: 'Pending Confirmation',
+    confirmed: 'Confirmed',
+    processing: 'Processing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+    returned: 'Returned'
+};
+
+function formatAccountDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function getAccountRoleLabel(user) {
+    if (!user) return 'Customer';
+    if (Array.isArray(user.roles) && user.roles.length > 0) {
+        return user.roles.map(role => (role && (role.name || role.label)) || role).filter(Boolean).join(', ');
+    }
+    return 'Customer';
+}
+
+function renderAccountStatusBadge(status) {
+    const safeStatus = escapeHtml(status || '');
+    const label = ORDER_STATUS_LABELS[status] || status || '—';
+    return `<span class="account-status-pill account-status-${safeStatus}">${escapeHtml(label)}</span>`;
+}
+
+function guardAccountPage() {
+    if (!isLoggedIn()) {
+        openAuthModal('login');
+        return false;
+    }
+    return true;
+}
+
+function showAccountFormMessage(el, text, type) {
+    if (!el) return;
+    if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        el.classList.remove('error', 'success');
+        return;
+    }
+    el.hidden = false;
+    el.textContent = text;
+    el.classList.remove('error', 'success');
+    if (type) el.classList.add(type);
+}
+
+function wireAccountFormOverlay(overlay, closeBtn) {
+    if (!overlay) return;
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.hidden = true;
+        }
+    });
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            overlay.hidden = true;
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !overlay.hidden) {
+            overlay.hidden = true;
+        }
+    });
+}
+
+function renderProfileDetails(user) {
+    return `
+        <dt>Name</dt><dd>${escapeHtml(user.name || '—')}</dd>
+        <dt>Email</dt><dd>${escapeHtml(user.email || '—')}</dd>
+        <dt>Phone</dt><dd>${escapeHtml(user.phone || '—')}</dd>
+        <dt>Member Since</dt><dd>${escapeHtml(formatAccountDate(user.created_at))}</dd>
+        <dt>Account Role</dt><dd>${escapeHtml(getAccountRoleLabel(user))}</dd>
+    `;
+}
+
+function setAccountViewState(elements, state) {
+    const isLoading = state === 'loading';
+    const isError = state === 'error';
+    const isEmpty = state === 'empty';
+    const isReady = state === 'ready';
+
+    if (elements.loading) elements.loading.hidden = !isLoading;
+    if (elements.error) elements.error.hidden = !isError;
+    if (elements.empty) elements.empty.hidden = !isEmpty;
+    if (elements.content) elements.content.hidden = !isReady;
+    if (elements.actions) elements.actions.hidden = !isReady;
+}
+
+async function initProfilePage() {
+    if (!guardAccountPage()) return;
+
+    const loadingEl = document.getElementById('profileLoading');
+    const errorEl = document.getElementById('profileError');
+    const detailsEl = document.getElementById('profileDetails');
+    const actionsEl = document.getElementById('profileActions');
+    const retryBtn = document.getElementById('profileRetry');
+
+    const editOverlay = document.getElementById('editProfileOverlay');
+    const editClose = document.getElementById('editProfileClose');
+    const editForm = document.getElementById('editProfileForm');
+    const editMessage = document.getElementById('editProfileMessage');
+    const editBtn = document.getElementById('editProfileBtn');
+
+    const passwordOverlay = document.getElementById('changePasswordOverlay');
+    const passwordClose = document.getElementById('changePasswordClose');
+    const passwordForm = document.getElementById('changePasswordForm');
+    const passwordMessage = document.getElementById('changePasswordMessage');
+    const passwordBtn = document.getElementById('changePasswordBtn');
+
+    wireAccountFormOverlay(editOverlay, editClose);
+    wireAccountFormOverlay(passwordOverlay, passwordClose);
+
+    let currentUser = getStoredUser();
+
+    function setProfileState(state) {
+        setAccountViewState({
+            loading: loadingEl,
+            error: errorEl,
+            content: detailsEl,
+            actions: actionsEl
+        }, state);
+    }
+
+    async function loadProfile() {
+        setProfileState('loading');
+        try {
+            const data = await window.afifiApi.apiRequest('/auth/me');
+            currentUser = data && data.user ? data.user : currentUser;
+            if (currentUser) setStoredUser(currentUser);
+            if (detailsEl) detailsEl.innerHTML = renderProfileDetails(currentUser || {});
+            setProfileState('ready');
+        } catch (error) {
+            if (currentUser && detailsEl) {
+                detailsEl.innerHTML = renderProfileDetails(currentUser);
+                setProfileState('ready');
+                return;
+            }
+            setProfileState('error');
+        }
+    }
+
+    if (retryBtn) retryBtn.addEventListener('click', loadProfile);
+
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            if (!currentUser) return;
+            document.getElementById('editProfileName').value = currentUser.name || '';
+            document.getElementById('editProfileEmail').value = currentUser.email || '';
+            document.getElementById('editProfilePhone').value = currentUser.phone || '';
+            showAccountFormMessage(editMessage, '');
+            editOverlay.hidden = false;
+        });
+    }
+
+    if (passwordBtn) {
+        passwordBtn.addEventListener('click', () => {
+            showAccountFormMessage(passwordMessage, '');
+            if (passwordForm) passwordForm.reset();
+            passwordOverlay.hidden = false;
+        });
+    }
+
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = editForm.querySelector('.auth-submit');
+            showAccountFormMessage(editMessage, '');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'PLEASE WAIT...';
+            }
+            try {
+                const formData = new FormData(editForm);
+                const body = {
+                    name: formData.get('name'),
+                    email: formData.get('email') || null,
+                    phone: formData.get('phone')
+                };
+                const data = await window.afifiApi.apiRequest('/auth/profile', { method: 'PUT', body });
+                if (data && data.user) {
+                    currentUser = data.user;
+                    setStoredUser(data.user);
+                    if (detailsEl) detailsEl.innerHTML = renderProfileDetails(data.user);
+                    updateAuthUI();
+                }
+                showAccountFormMessage(editMessage, 'Profile updated successfully.', 'success');
+                setTimeout(() => {
+                    editOverlay.hidden = true;
+                }, 900);
+            } catch (error) {
+                showAccountFormMessage(editMessage, getAuthErrorMessage(error), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'SAVE CHANGES';
+                }
+            }
+        });
+    }
+
+    if (passwordForm) {
+        passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = passwordForm.querySelector('.auth-submit');
+            showAccountFormMessage(passwordMessage, '');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'PLEASE WAIT...';
+            }
+            try {
+                const formData = new FormData(passwordForm);
+                await window.afifiApi.apiRequest('/auth/password', {
+                    method: 'PUT',
+                    body: {
+                        current_password: formData.get('current_password'),
+                        password: formData.get('password'),
+                        password_confirmation: formData.get('password_confirmation')
+                    }
+                });
+                passwordForm.reset();
+                showAccountFormMessage(passwordMessage, 'Password updated successfully.', 'success');
+                setTimeout(() => {
+                    passwordOverlay.hidden = true;
+                }, 900);
+            } catch (error) {
+                showAccountFormMessage(passwordMessage, getAuthErrorMessage(error), 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'UPDATE PASSWORD';
+                }
+            }
+        });
+    }
+
+    await loadProfile();
+}
+
+function renderOrderListCard(order) {
+    const orderNumber = escapeHtml(order.order_number || `#${order.id}`);
+    const date = formatAccountDate(order.created_at);
+    const total = formatPrice(order.grand_total, order.currency_code);
+    const statusBadge = renderAccountStatusBadge(order.status);
+    const href = `order.html?id=${encodeURIComponent(order.id)}`;
+
+    return `
+        <a href="${href}" class="account-order-card">
+            <div class="account-order-card-top">
+                <p class="account-order-number">${orderNumber}</p>
+                ${statusBadge}
+            </div>
+            <div class="account-order-meta">
+                <span>${escapeHtml(date)}</span>
+                <span class="account-order-total">${escapeHtml(total)}</span>
+            </div>
+        </a>
+    `;
+}
+
+function formatAddressBlock(address) {
+    if (!address) return '<p class="account-address-block">—</p>';
+    const parts = [
+        address.full_name,
+        address.phone,
+        [address.street, address.building, address.floor].filter(Boolean).join(', '),
+        [address.area, address.city, address.governorate_name].filter(Boolean).join(', '),
+        address.postal_code
+    ].filter(Boolean);
+    return `<p class="account-address-block">${parts.map(part => escapeHtml(part)).join('<br>')}</p>`;
+}
+
+function renderOrderDetailContent(order) {
+    const orderNumber = escapeHtml(order.order_number || `#${order.id}`);
+    const items = Array.isArray(order.items) ? order.items : [];
+    const addresses = Array.isArray(order.addresses) ? order.addresses : [];
+    const shippingAddress = addresses.find(a => a.type === 'shipping') || addresses[0] || null;
+
+    const itemRows = items.map(item => {
+        const variant = [item.color_name, item.size_name].filter(Boolean).join(' / ');
+        const lineTotal = formatPrice(item.line_total, order.currency_code);
+        return `
+            <tr>
+                <td data-label="Product">${escapeHtml(item.product_name || '—')}${variant ? `<br><small>${escapeHtml(variant)}</small>` : ''}</td>
+                <td data-label="Qty">${escapeHtml(String(item.quantity || 0))}</td>
+                <td data-label="Total">${escapeHtml(lineTotal)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const summaryLines = [
+        ['Subtotal', order.subtotal]
+    ];
+    if (Number(order.shipping_fee) > 0) summaryLines.push(['Shipping', order.shipping_fee]);
+    if (Number(order.discount_total) > 0) summaryLines.push(['Discount', order.discount_total]);
+
+    const totals = summaryLines
+        .map(([label, amount]) => `<li><span>${label}</span><span>${escapeHtml(formatPrice(amount, order.currency_code))}</span></li>`)
+        .join('');
+
+    return `
+        <div class="account-order-detail-header">
+            <h2>${orderNumber}</h2>
+            ${renderAccountStatusBadge(order.status)}
+            <span class="account-order-detail-muted">Placed ${escapeHtml(formatAccountDate(order.created_at))}</span>
+        </div>
+
+        <div class="account-order-section">
+            <h3>ITEMS</h3>
+            ${items.length ? `
+                <table class="account-order-items">
+                    <thead><tr><th>Product</th><th>Qty</th><th>Total</th></tr></thead>
+                    <tbody>${itemRows}</tbody>
+                </table>
+            ` : '<p class="account-order-detail-muted">No items found for this order.</p>'}
+        </div>
+
+        <div class="account-order-section">
+            <h3>ORDER SUMMARY</h3>
+            <ul class="account-order-totals">
+                ${totals}
+                <li class="account-order-grand-total"><span>Grand Total</span><span>${escapeHtml(formatPrice(order.grand_total, order.currency_code))}</span></li>
+            </ul>
+        </div>
+
+        ${shippingAddress ? `
+            <div class="account-order-section">
+                <h3>SHIPPING ADDRESS</h3>
+                ${formatAddressBlock(shippingAddress)}
+            </div>
+        ` : ''}
+
+        <a href="orders.html" class="story-btn account-back-link">Back to Orders</a>
+    `;
+}
+
+async function initOrdersPage() {
+    if (!guardAccountPage()) return;
+
+    const loadingEl = document.getElementById('ordersLoading');
+    const errorEl = document.getElementById('ordersError');
+    const emptyEl = document.getElementById('ordersEmpty');
+    const listEl = document.getElementById('ordersList');
+    const loadMoreBtn = document.getElementById('ordersLoadMore');
+    const retryBtn = document.getElementById('ordersRetry');
+
+    let currentPage = 1;
+    let lastPage = 1;
+    let isLoading = false;
+
+    function setOrdersState(state) {
+        setAccountViewState({
+            loading: loadingEl,
+            error: errorEl,
+            empty: emptyEl,
+            content: listEl
+        }, state);
+    }
+
+    async function fetchOrdersPage(page, append) {
+        if (isLoading) return;
+        isLoading = true;
+        if (!append) setOrdersState('loading');
+        if (loadMoreBtn) loadMoreBtn.disabled = true;
+
+        try {
+            const data = await window.afifiApi.apiRequest(`/orders?per_page=15&page=${page}`);
+            const orders = Array.isArray(data.data) ? data.data : [];
+            const meta = data.meta || {};
+            currentPage = meta.current_page || page;
+            lastPage = meta.last_page || 1;
+
+            if (!append && orders.length === 0) {
+                setOrdersState('empty');
+                if (loadMoreBtn) loadMoreBtn.hidden = true;
+                return;
+            }
+
+            if (listEl) {
+                const html = orders.map(renderOrderListCard).join('');
+                listEl.innerHTML = append ? listEl.innerHTML + html : html;
+            }
+            setOrdersState('ready');
+
+            if (loadMoreBtn) {
+                loadMoreBtn.hidden = currentPage >= lastPage;
+                loadMoreBtn.disabled = false;
+            }
+        } catch (error) {
+            if (!append) setOrdersState('error');
+        } finally {
+            isLoading = false;
+            if (loadMoreBtn && !loadMoreBtn.hidden) loadMoreBtn.disabled = false;
+        }
+    }
+
+    if (retryBtn) retryBtn.addEventListener('click', () => fetchOrdersPage(1, false));
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => fetchOrdersPage(currentPage + 1, true));
+    }
+
+    await fetchOrdersPage(1, false);
+}
+
+async function initOrderDetailPage() {
+    if (!guardAccountPage()) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('id');
+
+    const loadingEl = document.getElementById('orderLoading');
+    const errorEl = document.getElementById('orderError');
+    const errorTitle = document.getElementById('orderErrorTitle');
+    const errorText = document.getElementById('orderErrorText');
+    const contentEl = document.getElementById('orderContent');
+    const retryBtn = document.getElementById('orderRetry');
+    const breadcrumbEl = document.getElementById('orderBreadcrumb');
+
+    function setOrderState(state) {
+        setAccountViewState({
+            loading: loadingEl,
+            error: errorEl,
+            content: contentEl
+        }, state);
+    }
+
+    async function loadOrder() {
+        if (!orderId) {
+            if (errorTitle) errorTitle.textContent = 'Order not found';
+            if (errorText) errorText.textContent = 'No order was specified. Go back to your order history.';
+            if (retryBtn) retryBtn.hidden = true;
+            setOrderState('error');
+            return;
+        }
+
+        setOrderState('loading');
+        if (retryBtn) retryBtn.hidden = false;
+
+        try {
+            const data = await window.afifiApi.apiRequest(`/orders/${encodeURIComponent(orderId)}`);
+            const order = data && data.data ? data.data : data;
+            if (!order || !order.id) throw new Error('Order not found');
+
+            if (contentEl) contentEl.innerHTML = renderOrderDetailContent(order);
+            if (breadcrumbEl) breadcrumbEl.textContent = order.order_number || `#${order.id}`;
+            setOrderState('ready');
+        } catch (error) {
+            if (errorTitle) {
+                errorTitle.textContent = error.status === 404 ? 'Order not found' : 'Unable to load order';
+            }
+            if (errorText) {
+                errorText.textContent = error.status === 404
+                    ? 'This order does not exist or is not linked to your account.'
+                    : 'We couldn\'t reach the server. Please try again.';
+            }
+            setOrderState('error');
+        }
+    }
+
+    if (retryBtn) retryBtn.addEventListener('click', loadOrder);
+    await loadOrder();
+}
+
+(function initAccountPages() {
+    const page = document.body.dataset.accountPage;
+    if (!page) return;
+
+    if (page === 'profile') void initProfilePage();
+    else if (page === 'orders') void initOrdersPage();
+    else if (page === 'order') void initOrderDetailPage();
+})();

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
+    <link rel="manifest" href="images/favicon/site.webmanifest">
+    <meta name="theme-color" content="#0D0D0D">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="brand.css?v=1.37">
+    <title>AFIFI | MY PROFILE</title>
+    <meta name="description" content="View and manage your AFIFI account profile.">
+</head>
+<body data-account-page="profile">
+
+<nav class="navbar navbar-solid">
+    <a href="index.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo"></a>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+        <div class="sections">
+            <a href="index.html">Home</a>
+            <a href="shop.html">Shop</a>
+            <a href="about.html">About</a>
+            <a href="contact.html">Contact</a>
+        </div>
+        <div class="icons">
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt="Search"></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt="Cart"></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt="Profile"></a>
+        </div>
+    </div>
+</nav>
+
+<section class="page-header">
+    <h1>MY PROFILE</h1>
+    <div class="breadcrumbs">
+        <a href="index.html">Home</a> <span>&rsaquo;</span> <span>My Profile</span>
+    </div>
+</section>
+
+<section class="account-layout">
+    <div class="account-intro">
+        <span class="section-label">ACCOUNT</span>
+        <h2>Your details</h2>
+        <p>Manage your personal information and account security.</p>
+    </div>
+
+    <div class="account-panel" id="profilePanel">
+        <div class="account-loading" id="profileLoading" aria-live="polite">
+            <div class="account-skeleton account-skeleton-line"></div>
+            <div class="account-skeleton account-skeleton-line"></div>
+            <div class="account-skeleton account-skeleton-line short"></div>
+        </div>
+        <div class="account-error" id="profileError" hidden>
+            <p class="account-error-title">Unable to load profile</p>
+            <p class="account-error-text">We couldn't reach the server. Please try again.</p>
+            <button type="button" class="account-retry-btn" id="profileRetry">Retry</button>
+        </div>
+        <dl class="account-details" id="profileDetails" hidden></dl>
+    </div>
+
+    <div class="account-actions" id="profileActions" hidden>
+        <button type="button" class="story-btn" id="editProfileBtn">Edit Profile</button>
+        <button type="button" class="story-btn account-btn-secondary" id="changePasswordBtn">Change Password</button>
+        <a href="orders.html" class="story-btn account-btn-link">My Orders</a>
+    </div>
+</section>
+
+<div class="account-form-overlay" id="editProfileOverlay" hidden>
+    <div class="account-form-dialog" role="dialog" aria-modal="true" aria-labelledby="editProfileTitle">
+        <button type="button" class="account-form-close" id="editProfileClose" aria-label="Close">&times;</button>
+        <h3 id="editProfileTitle" class="account-form-title">EDIT PROFILE</h3>
+        <div class="account-form-message" id="editProfileMessage" role="alert" hidden></div>
+        <form class="account-form" id="editProfileForm" novalidate>
+            <label class="auth-label" for="editProfileName">Name</label>
+            <input class="auth-input" type="text" id="editProfileName" name="name" autocomplete="name" required>
+            <label class="auth-label" for="editProfileEmail">Email</label>
+            <input class="auth-input" type="email" id="editProfileEmail" name="email" autocomplete="email">
+            <label class="auth-label" for="editProfilePhone">Phone</label>
+            <input class="auth-input" type="tel" id="editProfilePhone" name="phone" autocomplete="tel" required>
+            <button type="submit" class="auth-submit">SAVE CHANGES</button>
+        </form>
+    </div>
+</div>
+
+<div class="account-form-overlay" id="changePasswordOverlay" hidden>
+    <div class="account-form-dialog" role="dialog" aria-modal="true" aria-labelledby="changePasswordTitle">
+        <button type="button" class="account-form-close" id="changePasswordClose" aria-label="Close">&times;</button>
+        <h3 id="changePasswordTitle" class="account-form-title">CHANGE PASSWORD</h3>
+        <div class="account-form-message" id="changePasswordMessage" role="alert" hidden></div>
+        <form class="account-form" id="changePasswordForm" novalidate>
+            <label class="auth-label" for="currentPassword">Current Password</label>
+            <input class="auth-input" type="password" id="currentPassword" name="current_password" autocomplete="current-password" required>
+            <label class="auth-label" for="newPassword">New Password</label>
+            <input class="auth-input" type="password" id="newPassword" name="password" autocomplete="new-password" required minlength="8">
+            <label class="auth-label" for="confirmPassword">Confirm New Password</label>
+            <input class="auth-input" type="password" id="confirmPassword" name="password_confirmation" autocomplete="new-password" required minlength="8">
+            <button type="submit" class="auth-submit">UPDATE PASSWORD</button>
+        </form>
+    </div>
+</div>
+
+<footer class="site-footer">
+    <div class="footer-main">
+        <div class="footer-brand">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="AFIFI Logo" class="footer-logo">
+            <p>Premium Egyptian brand crafted with passion and dedicated to quality.</p>
+            <div class="social-icons">
+                <a href="https://www.instagram.com/afifi_15may?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" aria-label="Instagram" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg></a>
+                <a href="https://www.tiktok.com/@afifi9087?is_from_webapp=1&sender_device=pc" aria-label="TikTok" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg></a>
+                <a href="https://www.facebook.com/Afifibrands" aria-label="Facebook" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+            </div>
+        </div>
+        <div class="footer-links">
+            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="shop.html">T-Shirts</a><a href="shop.html">Hoodies</a><a href="shop.html">Pants</a><a href="shop.html">Accessories</a></div>
+            <div class="footer-col"><h4>COMPANY</h4><a href="about.html">Our Story</a><a href="contact.html">Contact Us</a></div>
+            <div class="footer-col"><h4>SUPPORT</h4><a href="support.html#size-guide">Size Guide</a><a href="support.html#shipping">Shipping & Returns</a></div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2026 AFIFI BRANDS. All Rights Reserved.</p>
+        <div class="footer-bottom-links"><a href="support.html#privacy">Privacy Policy</a><a href="support.html#terms">Terms & Conditions</a></div>
+    </div>
+</footer>
+
+<!--
+  API base URL (production / split deployment only):
+  Uncomment and set before brand.js when the Laravel API is NOT on the same origin as this site.
+  Required for static hosts such as GitHub Pages. Local dev (localhost, 127.0.0.1, file://)
+  automatically uses http://127.0.0.1:8000/api — do not set this override locally.
+  Example:
+  <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
+-->
+<script src="brand.js?v=1.32"></script>
+</body>
+</html>
