@@ -174,7 +174,7 @@ async function loadPublicSettings() {
 loadPublicSettings();
 
 // ========== HOMEPAGE PRODUCTS (Laravel backend integration, step 3) ==========
-// Static New Arrivals / Best Sellers markup stays as the fallback.
+// Product sections use API data only — no static product-card fallback.
 function escapeHtml(str) {
     return String(str == null ? '' : str).replace(/[&<>"']/g, (ch) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -344,43 +344,251 @@ function renderProductCard(product) {
     return card;
 }
 
-async function loadHomepageProducts() {
-    const newArrivalsGrid = document.querySelector('.new-arrivals .products-grid');
-    const bestSellersTrack = document.querySelector('.best-sellers .carousel-track');
+const HOME_ARRIVALS_SKELETON_COUNT = 6;
+const HOME_BEST_SELLERS_SKELETON_COUNT = 5;
+let homepageRetryInFlight = false;
+let homepageLoadErrorLogged = false;
+
+function getHomepageProductContainers() {
+    return {
+        newArrivalsGrid: document.getElementById('newArrivalsGrid') || document.querySelector('.new-arrivals .products-grid'),
+        bestSellersTrack: document.getElementById('bestSellersTrack') || document.querySelector('.best-sellers .carousel-track'),
+        newArrivalsEmpty: document.getElementById('newArrivalsEmpty'),
+        bestSellersEmpty: document.getElementById('bestSellersEmpty'),
+        newArrivalsError: document.getElementById('newArrivalsError'),
+        bestSellersError: document.getElementById('bestSellersError')
+    };
+}
+
+function createHomeSkeletonCard() {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'shop-skeleton-card';
+    skeleton.setAttribute('aria-hidden', 'true');
+    skeleton.innerHTML = '<div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div>';
+    return skeleton;
+}
+
+function clearHomepageProductSlots(container) {
+    if (!container) return;
+    container.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
+}
+
+function purgeHomepageSectionProductCards() {
+    document.querySelectorAll('.new-arrivals .product-card, .best-sellers .product-card')
+        .forEach(el => el.remove());
+}
+
+function setHomepageSectionPanelLayout(container, isPanel) {
+    if (!container) return;
+    container.classList.toggle('has-home-panel', isPanel);
+    const section = container.closest('.new-arrivals, .best-sellers');
+    if (section) section.classList.toggle('has-home-panel', isPanel);
+}
+
+function restoreHomepageSkeletons(container, count, insertBefore) {
+    if (!container) return;
+    clearHomepageProductSlots(container);
+    setHomepageSectionPanelLayout(container, false);
+    const insertRef = insertBefore && insertBefore.parentNode === container ? insertBefore : null;
+    for (let i = 0; i < count; i += 1) {
+        const skeleton = createHomeSkeletonCard();
+        if (insertRef) container.insertBefore(skeleton, insertRef);
+        else container.appendChild(skeleton);
+    }
+}
+
+function setHomepageSectionLoading(container, isLoading) {
+    if (!container) return;
+    container.classList.toggle('is-loading', isLoading);
+    container.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    if (isLoading) setHomepageSectionPanelLayout(container, false);
+    if (container.classList.contains('carousel-track')) {
+        const carouselWrapper = container.closest('.carousel-wrapper');
+        if (carouselWrapper) carouselWrapper.classList.toggle('is-loading', isLoading);
+    }
+}
+
+function hideHomepageSectionPanels(emptyEl, errorEl) {
+    if (emptyEl) emptyEl.hidden = true;
+    if (errorEl) errorEl.hidden = true;
+}
+
+function showHomepageSectionEmpty(container, emptyEl, errorEl) {
+    if (!container || !emptyEl) return;
+    clearHomepageProductSlots(container);
+    purgeHomepageSectionProductCards();
+    hideHomepageSectionPanels(emptyEl, errorEl);
+    emptyEl.hidden = false;
+    container.appendChild(emptyEl);
+    setHomepageSectionPanelLayout(container, true);
+    setHomepageSectionLoading(container, false);
+}
+
+function showHomepageSectionError(container, emptyEl, errorEl) {
+    if (!container || !errorEl) return;
+    clearHomepageProductSlots(container);
+    purgeHomepageSectionProductCards();
+    if (emptyEl) emptyEl.hidden = true;
+    errorEl.hidden = false;
+    container.appendChild(errorEl);
+    setHomepageSectionPanelLayout(container, true);
+    setHomepageSectionLoading(container, false);
+}
+
+function renderHomepageSectionProducts(container, products, emptyEl, errorEl, emptyTitle, emptyText) {
+    if (!container) return;
+
+    clearHomepageProductSlots(container);
+    purgeHomepageSectionProductCards();
+    setHomepageSectionPanelLayout(container, false);
+    hideHomepageSectionPanels(emptyEl, errorEl);
+
+    if (!Array.isArray(products) || products.length === 0) {
+        if (emptyEl) {
+            const title = emptyEl.querySelector('.home-products-empty-title');
+            const text = emptyEl.querySelector('.home-products-empty-text');
+            if (title) title.textContent = emptyTitle;
+            if (text) text.textContent = emptyText;
+            emptyEl.hidden = false;
+            container.appendChild(emptyEl);
+        }
+        setHomepageSectionPanelLayout(container, true);
+        setHomepageSectionLoading(container, false);
+        return;
+    }
+
+    products.forEach(product => container.appendChild(renderProductCard(product)));
+    if (emptyEl) container.appendChild(emptyEl);
+    if (errorEl) container.appendChild(errorEl);
+    container.querySelectorAll('.wishlist').forEach(wireWishlistButton);
+    setHomepageSectionLoading(container, false);
+}
+
+function setHomepageRetryUi(isRetrying) {
+    document.querySelectorAll('[data-home-retry]').forEach(btn => {
+        const defaultText = btn.dataset.defaultText || 'Retry';
+        btn.disabled = isRetrying;
+        btn.setAttribute('aria-disabled', isRetrying ? 'true' : 'false');
+        btn.textContent = isRetrying ? 'Retrying...' : defaultText;
+    });
+    document.querySelectorAll('.home-products-error').forEach(panel => {
+        panel.setAttribute('aria-busy', isRetrying ? 'true' : 'false');
+    });
+}
+
+function wireHomepageRetryButtons() {
+    document.querySelectorAll('[data-home-retry]').forEach(btn => {
+        if (btn.dataset.homeRetryReady) return;
+        btn.dataset.homeRetryReady = 'true';
+        if (!btn.dataset.defaultText) btn.dataset.defaultText = btn.textContent.trim() || 'Retry';
+        btn.addEventListener('click', () => loadHomepageProducts({ forceRefresh: true }));
+    });
+}
+
+async function loadHomepageProducts(options = {}) {
+    const {
+        newArrivalsGrid,
+        bestSellersTrack,
+        newArrivalsEmpty,
+        bestSellersEmpty,
+        newArrivalsError,
+        bestSellersError
+    } = getHomepageProductContainers();
 
     if (!newArrivalsGrid && !bestSellersTrack) return;
 
+    wireHomepageRetryButtons();
+    purgeHomepageSectionProductCards();
+
+    const isRetry = Boolean(options.forceRefresh);
+    if (isRetry) {
+        if (homepageRetryInFlight) return;
+        homepageRetryInFlight = true;
+        setHomepageRetryUi(true);
+        restoreHomepageSkeletons(newArrivalsGrid, HOME_ARRIVALS_SKELETON_COUNT, newArrivalsEmpty || newArrivalsError);
+        restoreHomepageSkeletons(bestSellersTrack, HOME_BEST_SELLERS_SKELETON_COUNT, bestSellersEmpty || bestSellersError);
+    }
+
+    setHomepageSectionLoading(newArrivalsGrid, true);
+    setHomepageSectionLoading(bestSellersTrack, true);
+    hideHomepageSectionPanels(newArrivalsEmpty, newArrivalsError);
+    hideHomepageSectionPanels(bestSellersEmpty, bestSellersError);
+
+    if (isRetry) {
+        catalogProductsCache = null;
+        catalogProductsPromise = null;
+    }
+
     try {
         const products = await fetchCatalogProducts();
-
-        if (products.length === 0) {
-            console.warn('AFIFI: no products returned from API, keeping static homepage content.');
-            return;
-        }
+        homepageLoadErrorLogged = false;
 
         const newArrivals = products.filter(p => p.is_new_arrival);
         const bestSellers = products.filter(p => p.is_best_seller);
 
-        if (newArrivalsGrid && newArrivals.length > 0) {
-            newArrivalsGrid.innerHTML = '';
-            newArrivals.forEach(product => newArrivalsGrid.appendChild(renderProductCard(product)));
-            newArrivalsGrid.querySelectorAll('.wishlist').forEach(wireWishlistButton);
+        if (products.length === 0) {
+            showHomepageSectionEmpty(newArrivalsGrid, newArrivalsEmpty, newArrivalsError);
+            showHomepageSectionEmpty(bestSellersTrack, bestSellersEmpty, bestSellersError);
+            if (newArrivalsEmpty) {
+                const title = newArrivalsEmpty.querySelector('.home-products-empty-title');
+                const text = newArrivalsEmpty.querySelector('.home-products-empty-text');
+                if (title) title.textContent = 'No products yet.';
+                if (text) text.textContent = 'Check back soon for new AFIFI drops.';
+            }
+            if (bestSellersEmpty) {
+                const title = bestSellersEmpty.querySelector('.home-products-empty-title');
+                const text = bestSellersEmpty.querySelector('.home-products-empty-text');
+                if (title) title.textContent = 'No products yet.';
+                if (text) text.textContent = 'Check back soon for customer favorites.';
+            }
+            updateWishlistBadge();
+            return;
         }
 
-        if (bestSellersTrack && bestSellers.length > 0) {
-            bestSellersTrack.innerHTML = '';
-            bestSellers.forEach(product => bestSellersTrack.appendChild(renderProductCard(product)));
-            bestSellersTrack.querySelectorAll('.wishlist').forEach(wireWishlistButton);
-        }
+        renderHomepageSectionProducts(
+            newArrivalsGrid,
+            newArrivals,
+            newArrivalsEmpty,
+            newArrivalsError,
+            'No new arrivals yet.',
+            'Check back soon for fresh drops.'
+        );
+        renderHomepageSectionProducts(
+            bestSellersTrack,
+            bestSellers,
+            bestSellersEmpty,
+            bestSellersError,
+            'No best sellers yet.',
+            'Customer favorites will appear here soon.'
+        );
 
         updateWishlistBadge();
     } catch (error) {
-        console.warn('AFIFI: could not load homepage products from API, keeping static content.', error);
+        if (!homepageLoadErrorLogged) {
+            console.warn('AFIFI: could not load homepage products from API.', error);
+            homepageLoadErrorLogged = true;
+        }
+        catalogProductsCache = null;
+        catalogProductsPromise = null;
+        purgeHomepageSectionProductCards();
+        showHomepageSectionError(newArrivalsGrid, newArrivalsEmpty, newArrivalsError);
+        showHomepageSectionError(bestSellersTrack, bestSellersEmpty, bestSellersError);
+    } finally {
+        if (isRetry) {
+            setHomepageRetryUi(false);
+            homepageRetryInFlight = false;
+        }
     }
 }
 
 loadHomepageProducts();
 upgradeStaticProductLinks();
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted && document.getElementById('newArrivalsGrid')) {
+        loadHomepageProducts({ forceRefresh: true });
+    }
+});
 
 // ========== HERO FONT GATE ==========
 const HERO_FONT_TIMEOUT_MS = 2200;
@@ -763,6 +971,8 @@ createSearchOverlay();
 // ========== PRODUCT PAGE: STABLE PRODUCT ID (from ?slug= or ?id=) ==========
 const productPageIdentifier = getProductPageIdentifier();
 let productPageData = { variants: [] };
+let productRetryInFlight = false;
+let productLoadErrorLogged = false;
 
 // ========== PRODUCT PAGE: THUMBNAIL SWITCHING ==========
 const PRODUCT_IMAGE_FALLBACK = 'images/AFIFI_BRANDS_VECTOR.svg';
@@ -1621,12 +1831,182 @@ function renderRelatedProducts(currentProduct, allProducts) {
     container.querySelectorAll('.wishlist').forEach(wireWishlistButton);
 }
 
-function showProductNotFoundState(message) {
+function hideProductLoadErrorUi() {
+    const detail = document.getElementById('productDetail');
+    if (detail) detail.classList.remove('is-load-error');
+
+    const retryBtn = document.getElementById('productRetryLoad');
+    if (retryBtn) retryBtn.hidden = true;
+}
+
+function setProductRetryUi(isRetrying) {
+    const retryBtn = document.getElementById('productRetryLoad');
+    if (!retryBtn) return;
+
+    const defaultText = retryBtn.dataset.defaultText || 'Retry';
+    retryBtn.disabled = isRetrying;
+    retryBtn.setAttribute('aria-disabled', isRetrying ? 'true' : 'false');
+    retryBtn.textContent = isRetrying ? 'Retrying...' : defaultText;
+}
+
+function wireProductRetryButton() {
+    const retryBtn = document.getElementById('productRetryLoad');
+    if (!retryBtn || retryBtn.dataset.productRetryReady) return;
+
+    retryBtn.dataset.productRetryReady = 'true';
+    if (!retryBtn.dataset.defaultText) {
+        retryBtn.dataset.defaultText = retryBtn.textContent.trim() || 'Retry';
+    }
+
+    retryBtn.addEventListener('click', () => loadProductDetails({ forceRefresh: true }));
+}
+
+function restoreProductPageLoadingState() {
+    const detail = document.getElementById('productDetail');
+    if (detail) {
+        detail.classList.add('is-loading');
+        detail.classList.remove('is-load-error');
+    }
+
+    document.title = 'Product | AFIFI';
+
+    const breadcrumbCurrent = document.getElementById('productBreadcrumbCurrent')
+        || document.querySelector('.breadcrumbs-section > span:last-of-type');
+    if (breadcrumbCurrent) breadcrumbCurrent.textContent = 'Loading...';
+
+    const info = document.querySelector('.product-details-info');
+    if (!info) return;
+
+    info.querySelector('.product-back-link')?.remove();
+    document.querySelector('.product-detail-badge')?.remove();
+
+    let loadingMsg = info.querySelector('.product-loading-message');
+    if (!loadingMsg) {
+        loadingMsg = document.createElement('p');
+        loadingMsg.className = 'product-loading-message';
+        loadingMsg.setAttribute('role', 'status');
+        loadingMsg.setAttribute('aria-live', 'polite');
+        const titleEl = info.querySelector('h1');
+        if (titleEl) info.insertBefore(loadingMsg, titleEl);
+        else info.prepend(loadingMsg);
+    }
+    loadingMsg.textContent = 'Loading product...';
+    loadingMsg.hidden = false;
+
+    const h1 = info.querySelector('h1');
+    if (h1) h1.textContent = 'Loading product...';
+
+    const priceEl = info.querySelector('.product-price');
+    if (priceEl) priceEl.textContent = '';
+
+    const descEl = info.querySelector('.product-desc');
+    if (descEl) descEl.textContent = '';
+
+    info.querySelectorAll('.color-options, .size-options, .quantity-selector, .add-to-cart, .whatsapp-order, .add-wishlist, .purchase-notes')
+        .forEach(el => { el.style.display = ''; });
+
+    if (addToCartBtn) {
+        addToCartBtn.disabled = true;
+        addToCartBtn.textContent = 'ADD TO CART';
+        addToCartBtn.style.background = '';
+        addToCartBtn.style.color = '';
+    }
+
+    const whatsappOrderLink = document.querySelector('.whatsapp-order');
+    if (whatsappOrderLink) whatsappOrderLink.hidden = true;
+
+    const stockStatus = document.getElementById('productStockStatus');
+    if (stockStatus) stockStatus.hidden = true;
+
+    const gallery = document.querySelector('.product-gallery');
+    if (gallery) gallery.style.display = '';
+
+    const skeleton = document.querySelector('.product-image-skeleton');
+    if (skeleton) skeleton.hidden = false;
+
+    const mainImg = document.getElementById('mainProductImg');
+    if (mainImg) {
+        mainImg.hidden = true;
+        mainImg.classList.remove('is-loaded');
+        mainImg.removeAttribute('src');
+    }
+
+    document.querySelector('.thumbnails')?.replaceChildren();
+
+    const tabs = document.querySelector('.product-tabs');
+    if (tabs) tabs.style.display = '';
+
+    const related = document.querySelector('.related-products');
+    if (related) related.style.display = '';
+
+    const descTab = document.getElementById('desc');
+    if (descTab) {
+        descTab.innerHTML = '<p class="product-tab-loading">Loading product details...</p>';
+    }
+}
+
+function showProductLoadErrorState() {
     const info = document.querySelector('.product-details-info');
     if (!info) return;
 
     const detail = document.getElementById('productDetail');
-    if (detail) detail.classList.remove('is-loading');
+    if (detail) {
+        detail.classList.remove('is-loading');
+        detail.classList.add('is-load-error');
+    }
+
+    document.title = 'Product | AFIFI';
+
+    const breadcrumbCurrent = document.getElementById('productBreadcrumbCurrent')
+        || document.querySelector('.breadcrumbs-section > span:last-of-type');
+    if (breadcrumbCurrent) breadcrumbCurrent.textContent = 'Unable to load product';
+
+    const loadingMsg = info.querySelector('.product-loading-message');
+    if (loadingMsg) loadingMsg.remove();
+
+    const h1 = info.querySelector('h1');
+    if (h1) h1.textContent = 'Unable to load product.';
+
+    const priceEl = info.querySelector('.product-price');
+    if (priceEl) priceEl.textContent = '';
+
+    const descEl = info.querySelector('.product-desc');
+    if (descEl) {
+        descEl.textContent = "We couldn't reach the server. Please try again.";
+    }
+
+    info.querySelectorAll('.color-options, .size-options, .quantity-selector, .add-to-cart, .whatsapp-order, .add-wishlist, .purchase-notes')
+        .forEach(el => { el.style.display = 'none'; });
+
+    const gallery = document.querySelector('.product-gallery');
+    if (gallery) gallery.style.display = 'none';
+
+    const tabs = document.querySelector('.product-tabs');
+    if (tabs) tabs.style.display = 'none';
+
+    const related = document.querySelector('.related-products');
+    if (related) related.style.display = 'none';
+
+    const skeleton = document.querySelector('.product-image-skeleton');
+    if (skeleton) skeleton.hidden = true;
+
+    const retryBtn = document.getElementById('productRetryLoad');
+    if (retryBtn) retryBtn.hidden = false;
+
+    wireProductRetryButton();
+}
+
+function showProductNotFoundState(message) {
+    const info = document.querySelector('.product-details-info');
+    if (!info) return;
+
+    hideProductLoadErrorUi();
+
+    const detail = document.getElementById('productDetail');
+    if (detail) {
+        detail.classList.remove('is-loading');
+        detail.classList.remove('is-load-error');
+    }
 
     document.title = 'AFIFI | Product Not Found';
 
@@ -1673,8 +2053,13 @@ function showProductNotFoundState(message) {
 }
 
 function revealProductDetailUI(matched) {
+    hideProductLoadErrorUi();
+
     const detail = document.getElementById('productDetail');
-    if (detail) detail.classList.remove('is-loading');
+    if (detail) {
+        detail.classList.remove('is-loading');
+        detail.classList.remove('is-load-error');
+    }
 
     const loadingMsg = document.querySelector('.product-loading-message');
     if (loadingMsg) loadingMsg.remove();
@@ -1711,12 +2096,22 @@ function updateProductDescriptionTab(matched) {
     }
 }
 
-async function loadProductDetails() {
+async function loadProductDetails(options = {}) {
     if (!document.querySelector('.product-details-info')) return;
 
     if (!productPageIdentifier) {
         showProductNotFoundState('No product was specified. Choose a product from the shop or homepage.');
         return;
+    }
+
+    const isRetry = Boolean(options.forceRefresh);
+    if (isRetry) {
+        if (productRetryInFlight) return;
+        productRetryInFlight = true;
+        setProductRetryUi(true);
+        restoreProductPageLoadingState();
+        catalogProductsCache = null;
+        catalogProductsPromise = null;
     }
 
     try {
@@ -1728,6 +2123,8 @@ async function loadProductDetails() {
             showProductNotFoundState(`We couldn't find a product matching "${productPageIdentifier}".`);
             return;
         }
+
+        productLoadErrorLogged = false;
 
         productPageData = {
             id: matched.id,
@@ -1815,8 +2212,16 @@ async function loadProductDetails() {
         updateProductDescriptionTab(matched);
         updateProductPageStockState();
     } catch (error) {
-        console.warn('AFIFI: could not load product details from API.', error);
-        showProductNotFoundState('Unable to load product details right now. Please try again later.');
+        if (!productLoadErrorLogged) {
+            console.warn('AFIFI: could not load product details from API.', error);
+            productLoadErrorLogged = true;
+        }
+        showProductLoadErrorState();
+    } finally {
+        if (isRetry) {
+            setProductRetryUi(false);
+            productRetryInFlight = false;
+        }
     }
 }
 

@@ -17,7 +17,7 @@
     <link rel="preload" as="image" type="image/avif" imagesrcset="images/hero/slide-1-768.avif 768w, images/hero/slide-1-1280.avif 1280w, images/hero/slide-1-1920.avif 1920w" imagesizes="100vw">
     <link rel="preload" as="image" type="image/webp" imagesrcset="images/hero/slide-1-768.webp 768w, images/hero/slide-1-1280.webp 1280w, images/hero/slide-1-1920.webp 1920w" imagesizes="100vw">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.26">
+    <link rel="stylesheet" href="brand.css?v=1.34">
     <title>AFIFI | CLOTHING BRAND</title>
     <meta name="description" content="AFIFI - premium Egyptian streetwear brand. Shop original tees, hoodies, pants, and accessories built for everyday rotation.">
     <style id="hero-font-gate">
@@ -133,51 +133,21 @@
         </div>
         <a href="shop.html" class="view-all">VIEW ALL &rsaquo;</a>
     </div>
-    <div class="products-grid">
-        <div class="product-card">
-            <div class="product-img">
-                <span class="product-badge">NEW</span>
-                <a href="product.html?id=oversized-tee"><img src="images/Brand-logo.jpg" alt="Oversized Tee"></a>
-                <button class="wishlist" aria-label="Add Oversized Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>OVERSIZED TEE</h4><p>850 EGP</p></div>
+    <div class="products-grid is-loading" id="newArrivalsGrid" aria-busy="true">
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+        <div class="home-products-empty" id="newArrivalsEmpty" hidden>
+            <p class="home-products-empty-title">No new arrivals yet.</p>
+            <p class="home-products-empty-text">Check back soon for fresh drops.</p>
         </div>
-        <div class="product-card">
-            <div class="product-img">
-                <span class="product-badge">NEW</span>
-                <a href="product.html?id=logo-tee"><img src="images/Brand-logo.jpg" alt="Logo Tee"></a>
-                <button class="wishlist" aria-label="Add Logo Tee to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>LOGO TEE</h4><p>750 EGP</p></div>
-        </div>
-        <div class="product-card">
-            <div class="product-img">
-                <span class="product-badge">HOT</span>
-                <a href="product.html?id=hoodie"><img src="images/Brand-logo.jpg" alt="Hoodie"></a>
-                <button class="wishlist" aria-label="Add Hoodie to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>HOODIE</h4><p>1,350 EGP</p></div>
-        </div>
-        <div class="product-card">
-            <div class="product-img">
-                <a href="product.html?id=essential-hoodie"><img src="images/Brand-logo.jpg" alt="Essential Hoodie"></a>
-                <button class="wishlist" aria-label="Add Essential Hoodie to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>ESSENTIAL HOODIE</h4><p>1,250 EGP</p></div>
-        </div>
-        <div class="product-card">
-            <div class="product-img">
-                <a href="product.html?id=cargo-pants"><img src="images/Brand-logo.jpg" alt="Cargo Pants"></a>
-                <button class="wishlist" aria-label="Add Cargo Pants to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>CARGO PANTS</h4><p>1,150 EGP</p></div>
-        </div>
-        <div class="product-card">
-            <div class="product-img">
-                <a href="product.html?id=afifi-cap"><img src="images/Brand-logo.jpg" alt="Afifi Cap"></a>
-                <button class="wishlist" aria-label="Add Afifi Cap to wishlist">&hearts;</button>
-            </div>
-            <div class="product-info"><h4>AFIFI CAP</h4><p>650 EGP</p></div>
+        <div class="home-products-error" id="newArrivalsError" hidden>
+            <p class="home-products-error-title">Unable to load products.</p>
+            <p class="home-products-error-text">We couldn't reach the server. Please try again.</p>
+            <button type="button" class="home-products-retry" data-home-retry>Retry</button>
         </div>
     </div>
 </section>
@@ -216,32 +186,22 @@
         </div>
         <a href="shop.html" class="view-all">VIEW ALL &rsaquo;</a>
     </div>
-    <div class="carousel-wrapper">
+    <div class="carousel-wrapper is-loading">
         <button class="carousel-arrow left-arrow" aria-label="Previous products">&lsaquo;</button>
-        <div class="carousel-track">
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=oversized-tee"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Oversized Tee"></a><button class="wishlist" aria-label="Add Oversized Tee to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>OVERSIZED TEE</h4><p>850 EGP</p></div>
+        <div class="carousel-track is-loading" id="bestSellersTrack" aria-busy="true">
+            <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+            <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+            <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+            <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+            <div class="shop-skeleton-card" aria-hidden="true"><div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div></div>
+            <div class="home-products-empty" id="bestSellersEmpty" hidden>
+                <p class="home-products-empty-title">No best sellers yet.</p>
+                <p class="home-products-empty-text">Customer favorites will appear here soon.</p>
             </div>
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=hoodie"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Hoodie"></a><button class="wishlist" aria-label="Add Hoodie to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>HOODIE</h4><p>1,190 EGP</p></div>
-            </div>
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=cargo-pants"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Cargo Pants"></a><button class="wishlist" aria-label="Add Cargo Pants to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>CARGO PANTS</h4><p>1,190 EGP</p></div>
-            </div>
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=logo-tee"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo Tee"></a><button class="wishlist" aria-label="Add Logo Tee to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>LOGO TEE</h4><p>790 EGP</p></div>
-            </div>
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=afifi-cap"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Afifi Cap"></a><button class="wishlist" aria-label="Add Afifi Cap to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>AFIFI CAP</h4><p>650 EGP</p></div>
-            </div>
-            <div class="product-card">
-                <div class="product-img"><a href="product.html?id=minimal-tee"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Minimal Tee"></a><button class="wishlist" aria-label="Add Minimal Tee to wishlist">&hearts;</button></div>
-                <div class="product-info"><h4>MINIMAL TEE</h4><p>700 EGP</p></div>
+            <div class="home-products-error" id="bestSellersError" hidden>
+                <p class="home-products-error-title">Unable to load products.</p>
+                <p class="home-products-error-text">We couldn't reach the server. Please try again.</p>
+                <button type="button" class="home-products-retry" data-home-retry>Retry</button>
             </div>
         </div>
         <button class="carousel-arrow right-arrow" aria-label="Next products">&rsaquo;</button>
@@ -298,6 +258,6 @@
     </div>
 </footer>
 
-<script src="brand.js?v=1.24"></script>
+<script src="brand.js?v=1.28"></script>
 </body>
 </html>
