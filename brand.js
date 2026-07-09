@@ -586,79 +586,6 @@ window.addEventListener('pageshow', (event) => {
     }
 });
 
-// ========== HERO FONT GATE ==========
-const HERO_FONT_TIMEOUT_MS = 2200;
-
-function initHeroFontGate() {
-    const hero = document.querySelector('.hero');
-    if (!hero) return;
-
-    let revealed = false;
-
-    function revealHeroFonts() {
-        if (revealed) return;
-        revealed = true;
-        hero.classList.remove('hero-fonts-loading');
-        hero.classList.add('hero-fonts-ready');
-    }
-
-    if (!hero.classList.contains('hero-fonts-loading')) {
-        hero.classList.add('hero-fonts-loading');
-    }
-
-    function waitForHeroFonts() {
-        if (!document.fonts || typeof document.fonts.load !== 'function') {
-            return Promise.resolve();
-        }
-        return Promise.all([
-            document.fonts.load('400 1em "Bebas Neue"'),
-            document.fonts.load('500 1em "Montserrat"')
-        ]).catch(() => Promise.resolve());
-    }
-
-    Promise.race([
-        waitForHeroFonts().then(() => (document.fonts.ready || Promise.resolve())),
-        new Promise((resolve) => window.setTimeout(resolve, HERO_FONT_TIMEOUT_MS))
-    ]).then(revealHeroFonts);
-}
-
-initHeroFontGate();
-
-// ========== SHOP PAGE HEADER FONT GATE ==========
-const SHOP_FONT_TIMEOUT_MS = 1800;
-
-function initShopFontGate() {
-    const header = document.getElementById('shopPageHeader') || document.querySelector('.page-header');
-    if (!header || !document.querySelector('.shop-grid')) return;
-
-    let revealed = false;
-
-    function revealShopFonts() {
-        if (revealed) return;
-        revealed = true;
-        header.classList.remove('shop-fonts-loading');
-        header.classList.add('shop-fonts-ready');
-    }
-
-    if (!header.classList.contains('shop-fonts-loading')) {
-        header.classList.add('shop-fonts-loading');
-    }
-
-    function waitForShopFonts() {
-        if (!document.fonts || typeof document.fonts.load !== 'function') {
-            return Promise.resolve();
-        }
-        return document.fonts.load('400 1em "Bebas Neue"').catch(() => Promise.resolve());
-    }
-
-    Promise.race([
-        waitForShopFonts().then(() => (document.fonts.ready || Promise.resolve())),
-        new Promise((resolve) => window.setTimeout(resolve, SHOP_FONT_TIMEOUT_MS))
-    ]).then(revealShopFonts);
-}
-
-initShopFontGate();
-
 // ========== HERO SLIDESHOW ==========
 const slides = document.querySelectorAll('.slide');
 let current = 0;
@@ -899,6 +826,32 @@ function closeAllDrawers() {
     syncDrawerBackdrop();
 }
 
+function findNavIconLink(scope, kind) {
+    const iconsWrap = scope && scope.classList && scope.classList.contains('icons')
+        ? scope
+        : (scope && scope.querySelector ? scope.querySelector('.icons') : null);
+    if (!iconsWrap) return null;
+
+    const links = iconsWrap.querySelectorAll('a[href]');
+    for (const link of links) {
+        const label = (link.getAttribute('aria-label') || '').trim().toLowerCase();
+        if (kind === 'search' && label === 'search') return link;
+        if (kind === 'cart' && label === 'cart') return link;
+        if (kind === 'profile' && (label === 'profile' || label.startsWith('account'))) return link;
+    }
+
+    const legacyAlt = { search: 'Search', cart: 'Cart', profile: 'Profile' };
+    const img = iconsWrap.querySelector(`img[alt="${legacyAlt[kind]}"]`);
+    return img ? img.closest('a') : null;
+}
+
+function forEachNavIconLink(kind, callback) {
+    document.querySelectorAll('.icons').forEach(iconsWrap => {
+        const link = findNavIconLink(iconsWrap, kind);
+        if (link) callback(link, iconsWrap);
+    });
+}
+
 // ========== HEADER SEARCH OVERLAY ==========
 function createSearchOverlay() {
     const overlay = document.createElement('div');
@@ -953,9 +906,8 @@ function createSearchOverlay() {
         }
     });
 
-    document.querySelectorAll('img[alt="Search"]').forEach(icon => {
-        const link = icon.closest('a');
-        if (!link || link.dataset.searchReady) return;
+    forEachNavIconLink('search', (link) => {
+        if (link.dataset.searchReady) return;
         link.dataset.searchReady = 'true';
         link.addEventListener('click', (event) => {
             event.preventDefault();
@@ -2237,8 +2189,7 @@ loadProductDetails();
 // ========== NAV ICON BADGES (Cart / Wishlist) ==========
 function injectNavExtras() {
     document.querySelectorAll('.icons').forEach(iconsWrap => {
-        const cartImg = iconsWrap.querySelector('img[alt="Cart"]');
-        const cartLink = cartImg ? cartImg.closest('a') : null;
+        const cartLink = findNavIconLink(iconsWrap, 'cart');
         if (!cartLink || cartLink.dataset.badgeReady) return;
         cartLink.dataset.badgeReady = 'true';
 
@@ -2363,6 +2314,7 @@ function createAccountMenu() {
         const rect = anchor.getBoundingClientRect();
         menu.style.top = `${rect.bottom + 8}px`;
         menu.style.right = `${Math.max(window.innerWidth - rect.right, 8)}px`;
+        ensureAccountSessionNotice();
         menu.hidden = false;
     }
 
@@ -2433,6 +2385,7 @@ function createMobileAccountSheet() {
 
     function openSheet() {
         accountMenu.close();
+        ensureAccountSessionNotice();
         revealOverlay(overlay, BODY_CLASS);
         requestAnimationFrame(() => closeBtn.focus());
     }
@@ -2461,8 +2414,7 @@ function createMobileAccountSheet() {
 const mobileAccountSheet = createMobileAccountSheet();
 
 function wireProfileIcon(iconsWrap) {
-    const profileImg = iconsWrap.querySelector('img[alt="Profile"]');
-    const profileLink = profileImg ? profileImg.closest('a') : null;
+    const profileLink = findNavIconLink(iconsWrap, 'profile');
     if (!profileLink || profileLink.dataset.authReady) return;
     profileLink.dataset.authReady = 'true';
 
@@ -2671,6 +2623,72 @@ function openAuthModal(tabName) {
     authModal.open(tabName);
 }
 
+let authSessionOffline = false;
+let authSessionNoticeMessage = '';
+let authSessionErrorLogged = false;
+
+function ensureAccountSessionNotice() {
+    if (!authSessionOffline || !authSessionNoticeMessage) return;
+    const targets = [
+        { selector: '.account-menu', position: 'start' },
+        { selector: '.account-sheet-actions', position: 'start' }
+    ];
+    targets.forEach(({ selector, position }) => {
+        const parent = document.querySelector(selector);
+        if (!parent || parent.querySelector('.account-session-notice')) return;
+        const notice = document.createElement('p');
+        notice.className = 'account-session-notice cart-merge-warning';
+        notice.setAttribute('role', 'status');
+        notice.textContent = authSessionNoticeMessage;
+        if (position === 'start') parent.insertBefore(notice, parent.firstChild);
+        else parent.appendChild(notice);
+    });
+}
+
+function showAccountSessionNotice(message) {
+    authSessionOffline = true;
+    authSessionNoticeMessage = message || 'Unable to connect to the server. Showing saved account info.';
+    ensureAccountSessionNotice();
+}
+
+function hideAccountSessionNotice() {
+    authSessionOffline = false;
+    authSessionNoticeMessage = '';
+    document.querySelectorAll('.account-session-notice').forEach(el => el.remove());
+}
+
+async function refreshAuthSession() {
+    if (!isLoggedIn()) {
+        hideAccountSessionNotice();
+        updateAuthUI();
+        return;
+    }
+
+    const cachedUser = getStoredUser();
+    if (cachedUser) updateAuthUI();
+
+    try {
+        const data = await window.afifiApi.apiRequest('/auth/me');
+        const user = data && data.user ? data.user : null;
+        if (user) {
+            setStoredUser(user);
+            hideAccountSessionNotice();
+            authSessionErrorLogged = false;
+        }
+        updateAuthUI();
+    } catch (error) {
+        if (error && error.status === 401) return;
+        if (!authSessionErrorLogged) {
+            console.warn('AFIFI: could not refresh account session from server.', error);
+            authSessionErrorLogged = true;
+        }
+        if (cachedUser) {
+            showAccountSessionNotice('Unable to connect to the server. Showing saved account info.');
+            updateAuthUI();
+        }
+    }
+}
+
 updateAuthUI();
 
 // ========== CART AND WHATSAPP ORDERING ==========
@@ -2727,6 +2745,8 @@ let cartItems = (JSON.parse(localStorage.getItem('afifiCart') || '[]')).map(norm
 // Logged-out users keep the existing localStorage cart (`cartItems`) untouched.
 // Logged-in users are backed by `apiCartItems`, hydrated from GET /cart.
 let apiCartItems = [];
+let apiCartLoadFailed = false;
+let apiCartLoadErrorLogged = false;
 let productLookupMapCache = null;
 
 function invalidateCatalogStockCache() {
@@ -2735,7 +2755,10 @@ function invalidateCatalogStockCache() {
 }
 
 function getActiveCartItems() {
-    return isLoggedIn() ? apiCartItems : cartItems;
+    if (!isLoggedIn()) return cartItems;
+    if (apiCartItems.length > 0) return apiCartItems;
+    if (apiCartLoadFailed && cartItems.length > 0) return cartItems;
+    return apiCartItems;
 }
 
 async function getProductLookupMap() {
@@ -2790,13 +2813,25 @@ async function refreshApiCartFromServer() {
     apiCartItems = items.map(item => normalizeApiCartItem(item, lookupMap));
 }
 
-async function loadApiCart() {
+async function loadApiCart(options = {}) {
     if (!isLoggedIn()) return;
     try {
         await refreshApiCartFromServer();
+        apiCartLoadFailed = false;
+        hideCartDrawerNotice('offline');
     } catch (error) {
-        console.warn('AFIFI: failed to load cart from server.', error);
-        apiCartItems = [];
+        apiCartLoadFailed = true;
+        if (!apiCartLoadErrorLogged || options.fromRetry) {
+            console.warn('AFIFI: failed to load cart from server.', error);
+            if (!options.fromRetry) apiCartLoadErrorLogged = true;
+        }
+        const hasFallbackItems = apiCartItems.length > 0 || cartItems.length > 0;
+        showCartDrawerNotice(
+            hasFallbackItems
+                ? 'Unable to connect to the server. Showing saved cart items.'
+                : 'Unable to connect to the server.',
+            { id: 'offline', retry: true }
+        );
     }
     renderCart();
 }
@@ -2876,17 +2911,19 @@ function splitGuestQuantityForMerge(guestItem, existingApiItem) {
     return { addable, leftover, targetQty: addable };
 }
 
-function showCartMergeWarning(message) {
+function showCartDrawerNotice(message, options = {}) {
     if (!message) return;
     const panel = document.querySelector('.cart-panel');
     if (!panel) {
-        console.warn('AFIFI cart merge:', message);
+        console.warn('AFIFI cart notice:', message);
         return;
     }
-    let banner = panel.querySelector('.cart-merge-warning');
+    const noticeId = options.id || 'default';
+    let banner = panel.querySelector(`.cart-drawer-notice[data-notice-id="${noticeId}"]`);
     if (!banner) {
-        banner = document.createElement('p');
-        banner.className = 'cart-merge-warning';
+        banner = document.createElement('div');
+        banner.className = 'cart-merge-warning cart-drawer-notice';
+        banner.dataset.noticeId = noticeId;
         banner.setAttribute('role', 'status');
         const itemsWrap = panel.querySelector('.cart-items');
         if (itemsWrap) panel.insertBefore(banner, itemsWrap);
@@ -2894,6 +2931,37 @@ function showCartMergeWarning(message) {
     }
     banner.textContent = message;
     banner.hidden = false;
+
+    let retryBtn = banner.querySelector('.cart-drawer-retry');
+    if (options.retry) {
+        if (!retryBtn) {
+            retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.className = 'account-retry-btn cart-drawer-retry';
+            retryBtn.textContent = 'Retry';
+            retryBtn.addEventListener('click', () => {
+                void prepareCartDrawer({ fromRetry: true });
+            });
+            banner.appendChild(retryBtn);
+        }
+        retryBtn.hidden = false;
+    } else if (retryBtn) {
+        retryBtn.hidden = true;
+    }
+}
+
+function hideCartDrawerNotice(noticeId) {
+    const panel = document.querySelector('.cart-panel');
+    if (!panel) return;
+    if (noticeId) {
+        panel.querySelector(`.cart-drawer-notice[data-notice-id="${noticeId}"]`)?.remove();
+        return;
+    }
+    panel.querySelectorAll('.cart-drawer-notice').forEach(el => el.remove());
+}
+
+function showCartMergeWarning(message) {
+    showCartDrawerNotice(message, { id: 'merge' });
 }
 
 function consolidateGuestCartItems(guestItems) {
@@ -3171,18 +3239,33 @@ function getCartItemDisplayState(item) {
     return { maxQuantity, unavailable: false, warning: '' };
 }
 
-async function prepareCartDrawer() {
+async function prepareCartDrawer(options = {}) {
     try {
         invalidateCatalogStockCache();
         if (isLoggedIn()) {
             await refreshApiCartFromServer();
+            apiCartLoadFailed = false;
+            hideCartDrawerNotice('offline');
         } else {
             const lookupMap = await getProductLookupMap();
             cartItems.forEach(item => applyStockToCartItem(item, lookupMap));
             saveCart();
         }
     } catch (error) {
-        console.warn('AFIFI: could not refresh cart stock.', error);
+        apiCartLoadFailed = true;
+        if (!apiCartLoadErrorLogged || options.fromRetry) {
+            console.warn('AFIFI: could not refresh cart.', error);
+            if (!options.fromRetry) apiCartLoadErrorLogged = true;
+        }
+        if (isLoggedIn()) {
+            const hasFallbackItems = apiCartItems.length > 0 || cartItems.length > 0;
+            showCartDrawerNotice(
+                hasFallbackItems
+                    ? 'Unable to connect to the server. Showing saved cart items.'
+                    : 'Unable to connect to the server.',
+                { id: 'offline', retry: true }
+            );
+        }
     }
     renderCart();
 }
@@ -3335,13 +3418,17 @@ function createCartPanel() {
         await changeCartItemQuantity(item, index, minusBtn ? -1 : 1);
     });
 
-    document.querySelectorAll('img[alt="Cart"]').forEach(icon => {
-        const link = icon.closest('a');
-        if (!link) return;
+    function openCartDrawer() {
+        openDrawerPanel(panel);
+        void prepareCartDrawer();
+    }
+
+    forEachNavIconLink('cart', (link) => {
+        if (link.dataset.cartPanelReady) return;
+        link.dataset.cartPanelReady = 'true';
         link.addEventListener('click', (event) => {
             event.preventDefault();
-            openDrawerPanel(panel);
-            void prepareCartDrawer();
+            openCartDrawer();
         });
     });
 
@@ -3356,10 +3443,6 @@ function createCartPanel() {
 
 createCartPanel();
 
-if (isLoggedIn()) {
-    void mergeGuestCartIntoApiCart();
-}
-
 const whatsappFloat = document.createElement('a');
 whatsappFloat.className = 'whatsapp-float';
 whatsappFloat.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Hello AFIFI, I want to ask about your products.')}`;
@@ -3373,6 +3456,8 @@ document.body.appendChild(whatsappFloat);
 const WISHLIST_PLACEHOLDER_IMAGE = CART_PLACEHOLDER_IMAGE;
 let wishlistItems = JSON.parse(localStorage.getItem('afifiWishlist') || '[]');
 let apiWishlistItems = [];
+let apiWishlistLoadFailed = false;
+let apiWishlistLoadErrorLogged = false;
 
 function saveWishlist() {
     localStorage.setItem('afifiWishlist', JSON.stringify(wishlistItems));
@@ -3391,11 +3476,18 @@ function getWishlistKey(btn) {
 }
 
 function isWishlistKeyActive(key) {
-    if (isLoggedIn()) {
+    if (isLoggedIn() && !apiWishlistLoadFailed) {
         return apiWishlistItems.some(item => {
             const product = item.product || {};
             return product.slug === key || String(product.id) === String(key);
         });
+    }
+    if (isLoggedIn() && apiWishlistLoadFailed) {
+        const inApi = apiWishlistItems.some(item => {
+            const product = item.product || {};
+            return product.slug === key || String(product.id) === String(key);
+        });
+        if (inApi) return true;
     }
     return wishlistItems.includes(key);
 }
@@ -3436,7 +3528,7 @@ async function enrichWishlistDisplayItems(items) {
 }
 
 async function getWishlistDisplayItems() {
-    if (isLoggedIn()) {
+    if (isLoggedIn() && !apiWishlistLoadFailed) {
         return enrichWishlistDisplayItems(apiWishlistItems.map(normalizeApiWishlistItem));
     }
 
@@ -3487,13 +3579,25 @@ async function refreshApiWishlistFromServer() {
     apiWishlistItems = Array.isArray(items) ? items : [];
 }
 
-async function loadApiWishlist() {
+async function loadApiWishlist(options = {}) {
     if (!isLoggedIn()) return;
     try {
         await refreshApiWishlistFromServer();
+        apiWishlistLoadFailed = false;
+        hideWishlistDrawerNotice('offline');
     } catch (error) {
-        console.warn('AFIFI: failed to load wishlist from server.', error);
-        apiWishlistItems = [];
+        apiWishlistLoadFailed = true;
+        if (!apiWishlistLoadErrorLogged || options.fromRetry) {
+            console.warn('AFIFI: failed to load wishlist from server.', error);
+            if (!options.fromRetry) apiWishlistLoadErrorLogged = true;
+        }
+        const hasFallbackItems = apiWishlistItems.length > 0 || wishlistItems.length > 0;
+        showWishlistDrawerNotice(
+            hasFallbackItems
+                ? 'Unable to connect to the server. Showing saved wishlist items.'
+                : 'Unable to connect to the server.',
+            { id: 'offline', retry: true }
+        );
     }
     updateWishlistBadge();
     document.querySelectorAll('.wishlist, .add-wishlist').forEach(btn => refreshWishlistActiveState(btn));
@@ -3541,17 +3645,19 @@ function isGuestWishlistKeyInApi(key, product) {
     });
 }
 
-function showWishlistMergeWarning(message) {
+function showWishlistDrawerNotice(message, options = {}) {
     if (!message) return;
     const panel = document.querySelector('.wishlist-panel');
     if (!panel) {
-        console.warn('AFIFI wishlist merge:', message);
+        console.warn('AFIFI wishlist notice:', message);
         return;
     }
-    let banner = panel.querySelector('.wishlist-merge-warning');
+    const noticeId = options.id || 'default';
+    let banner = panel.querySelector(`.wishlist-drawer-notice[data-notice-id="${noticeId}"]`);
     if (!banner) {
-        banner = document.createElement('p');
-        banner.className = 'wishlist-merge-warning';
+        banner = document.createElement('div');
+        banner.className = 'wishlist-merge-warning wishlist-drawer-notice';
+        banner.dataset.noticeId = noticeId;
         banner.setAttribute('role', 'status');
         const itemsWrap = panel.querySelector('.wishlist-items');
         if (itemsWrap) panel.insertBefore(banner, itemsWrap);
@@ -3559,6 +3665,37 @@ function showWishlistMergeWarning(message) {
     }
     banner.textContent = message;
     banner.hidden = false;
+
+    let retryBtn = banner.querySelector('.wishlist-drawer-retry');
+    if (options.retry) {
+        if (!retryBtn) {
+            retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.className = 'account-retry-btn wishlist-drawer-retry';
+            retryBtn.textContent = 'Retry';
+            retryBtn.addEventListener('click', () => {
+                void loadApiWishlist({ fromRetry: true });
+            });
+            banner.appendChild(retryBtn);
+        }
+        retryBtn.hidden = false;
+    } else if (retryBtn) {
+        retryBtn.hidden = true;
+    }
+}
+
+function hideWishlistDrawerNotice(noticeId) {
+    const panel = document.querySelector('.wishlist-panel');
+    if (!panel) return;
+    if (noticeId) {
+        panel.querySelector(`.wishlist-drawer-notice[data-notice-id="${noticeId}"]`)?.remove();
+        return;
+    }
+    panel.querySelectorAll('.wishlist-drawer-notice').forEach(el => el.remove());
+}
+
+function showWishlistMergeWarning(message) {
+    showWishlistDrawerNotice(message, { id: 'merge' });
 }
 
 async function mergeGuestWishlistIntoApiWishlist() {
@@ -3707,10 +3844,17 @@ async function toggleWishlistItem(btn) {
     renderWishlist();
 }
 
+function getActiveWishlistCount() {
+    if (!isLoggedIn()) return wishlistItems.length;
+    if (!apiWishlistLoadFailed) return apiWishlistItems.length;
+    if (apiWishlistItems.length > 0) return apiWishlistItems.length;
+    return wishlistItems.length;
+}
+
 function updateWishlistBadge() {
     const badge = document.getElementById('wishlistBadge');
     if (!badge) return;
-    const count = isLoggedIn() ? apiWishlistItems.length : wishlistItems.length;
+    const count = getActiveWishlistCount();
     badge.textContent = count;
     badge.classList.toggle('show', count > 0);
     const wishlistLink = badge.closest('.wishlist-icon-link');
@@ -3828,9 +3972,41 @@ document.querySelectorAll('.wishlist, .add-wishlist').forEach(wireWishlistButton
 updateWishlistBadge();
 createWishlistPanel();
 
-if (isLoggedIn()) {
-    void mergeGuestWishlistIntoApiWishlist();
+let loggedInCartInitErrorLogged = false;
+let loggedInWishlistInitErrorLogged = false;
+
+async function initLoggedInShellData() {
+    if (!isLoggedIn()) return;
+
+    try {
+        await refreshAuthSession();
+    } catch (error) {
+        if (!authSessionErrorLogged) {
+            console.warn('AFIFI: session init failed.', error);
+            authSessionErrorLogged = true;
+        }
+    }
+
+    try {
+        await mergeGuestCartIntoApiCart();
+    } catch (error) {
+        if (!loggedInCartInitErrorLogged) {
+            console.warn('AFIFI: initial cart sync failed.', error);
+            loggedInCartInitErrorLogged = true;
+        }
+    }
+
+    try {
+        await mergeGuestWishlistIntoApiWishlist();
+    } catch (error) {
+        if (!loggedInWishlistInitErrorLogged) {
+            console.warn('AFIFI: initial wishlist sync failed.', error);
+            loggedInWishlistInitErrorLogged = true;
+        }
+    }
 }
+
+void initLoggedInShellData();
 
 // ========== NEWSLETTER FEEDBACK ==========
 document.querySelectorAll('.newsletter-form').forEach(form => {

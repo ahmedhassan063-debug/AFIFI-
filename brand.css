@@ -2421,14 +2421,82 @@ body.drawer-open {
     letter-spacing: 2px;
 }
 
-.cart-merge-warning {
+.cart-merge-warning,
+.cart-drawer-notice,
+.wishlist-merge-warning,
+.wishlist-drawer-notice {
     margin: 0;
-    padding: 12px 16px;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: #6b4a12;
-    background: #fff7e8;
-    border-bottom: 1px solid #f0dfc0;
+    padding: 18px 20px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #4a4a4a;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    border-left: 3px solid var(--gold-text);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    flex-shrink: 0;
+}
+
+.cart-panel .cart-merge-warning .account-retry-btn,
+.cart-panel .cart-drawer-notice .account-retry-btn,
+.cart-panel .cart-drawer-retry,
+.wishlist-panel .wishlist-merge-warning .account-retry-btn,
+.wishlist-panel .wishlist-drawer-notice .account-retry-btn,
+.wishlist-panel .wishlist-drawer-retry {
+    margin: 0;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-accent), sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 12px 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--black);
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.cart-panel .cart-merge-warning .account-retry-btn:hover,
+.cart-panel .cart-drawer-notice .account-retry-btn:hover,
+.cart-panel .cart-drawer-retry:hover,
+.wishlist-panel .wishlist-merge-warning .account-retry-btn:hover,
+.wishlist-panel .wishlist-drawer-notice .account-retry-btn:hover,
+.wishlist-panel .wishlist-drawer-retry:hover {
+    background: var(--black);
+    border-color: var(--black);
+    color: var(--white);
+}
+
+.cart-panel .cart-merge-warning .account-retry-btn:focus-visible,
+.cart-panel .cart-drawer-notice .account-retry-btn:focus-visible,
+.cart-panel .cart-drawer-retry:focus-visible,
+.wishlist-panel .wishlist-merge-warning .account-retry-btn:focus-visible,
+.wishlist-panel .wishlist-drawer-notice .account-retry-btn:focus-visible,
+.wishlist-panel .wishlist-drawer-retry:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+@media (min-width: 769px) {
+    .cart-panel .cart-merge-warning .account-retry-btn,
+    .cart-panel .cart-drawer-notice .account-retry-btn,
+    .cart-panel .cart-drawer-retry,
+    .wishlist-panel .wishlist-merge-warning .account-retry-btn,
+    .wishlist-panel .wishlist-drawer-notice .account-retry-btn,
+    .wishlist-panel .wishlist-drawer-retry {
+        align-self: flex-start;
+        width: auto;
+        min-width: 132px;
+    }
 }
 
 .cart-close {
@@ -2679,16 +2747,6 @@ body.drawer-open {
     font-family: var(--font-accent), sans-serif;
     font-size: 14px;
     letter-spacing: 2px;
-}
-
-.wishlist-merge-warning {
-    margin: 0;
-    padding: 12px 16px;
-    font-size: 0.82rem;
-    line-height: 1.45;
-    color: #6b4a12;
-    background: #fff7e8;
-    border-bottom: 1px solid #f0dfc0;
 }
 
 .wishlist-close {
@@ -3645,6 +3703,35 @@ body.auth-modal-open {
 
 .account-menu[hidden] {
     display: none !important;
+}
+
+.account-session-notice {
+    margin: 4px 12px 10px;
+    padding: 12px 14px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #5a5a5a;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold-text);
+    border-radius: 6px;
+    box-shadow: none;
+    display: block;
+}
+
+.account-menu .account-session-notice,
+.account-sheet-actions .account-session-notice {
+    align-items: unset;
+    gap: unset;
+    flex-shrink: unset;
+    border-bottom: 1px solid var(--line);
+}
+
+.account-sheet-actions .account-session-notice {
+    margin: 0 20px 12px;
+    padding: 14px 16px;
+    font-size: 13px;
 }
 
 .account-menu-item {
