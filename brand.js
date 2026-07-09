@@ -343,8 +343,8 @@ function renderProductCard(product) {
         ? `<a href="${href}"><img src="${image}" alt="${safeName}" loading="lazy"></a>`
         : `<img src="${image}" alt="${safeName}" loading="lazy">`;
     const titleLink = href
-        ? `<h4><a href="${href}">${safeName}</a></h4>`
-        : `<h4>${safeName}</h4>`;
+        ? `<h3><a href="${href}">${safeName}</a></h3>`
+        : `<h3>${safeName}</h3>`;
     const soldOutBadge = soldOut ? '<span class="product-badge product-badge-sold-out">SOLD OUT</span>' : '';
 
     card.innerHTML = `
@@ -805,16 +805,19 @@ function openDrawerPanel(panel) {
         if (openPanel !== panel) {
             openPanel.classList.remove('open');
             openPanel.setAttribute('aria-hidden', 'true');
+            openPanel.setAttribute('inert', '');
         }
     });
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
+    panel.removeAttribute('inert');
     syncDrawerBackdrop();
 }
 
 function closeDrawerPanel(panel) {
     panel.classList.remove('open');
     panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('inert', '');
     syncDrawerBackdrop();
 }
 
@@ -822,6 +825,7 @@ function closeAllDrawers() {
     document.querySelectorAll('.cart-panel.open, .wishlist-panel.open').forEach(panel => {
         panel.classList.remove('open');
         panel.setAttribute('aria-hidden', 'true');
+        panel.setAttribute('inert', '');
     });
     syncDrawerBackdrop();
 }
@@ -2363,7 +2367,7 @@ function createMobileAccountSheet() {
         <button type="button" class="account-sheet-backdrop" aria-label="Close account menu"></button>
         <div class="account-sheet" role="dialog" aria-modal="true" aria-labelledby="accountSheetTitle">
             <div class="account-sheet-header">
-                <h2 id="accountSheetTitle" class="account-sheet-title">MY ACCOUNT</h2>
+                <p id="accountSheetTitle" class="account-sheet-title">MY ACCOUNT</p>
                 <button type="button" class="account-sheet-close" aria-label="Close">&times;</button>
             </div>
             <div class="account-sheet-actions">
@@ -2444,20 +2448,20 @@ function createAuthModal() {
     overlay.innerHTML = `
         <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
             <button type="button" class="auth-modal-close" aria-label="Close">&times;</button>
-            <h2 id="authModalTitle" class="auth-modal-title">WELCOME TO AFIFI</h2>
+            <p id="authModalTitle" class="auth-modal-title">WELCOME TO AFIFI</p>
             <div class="auth-tabs" role="tablist">
                 <button type="button" class="auth-tab active" data-tab="login" id="authTabLogin" role="tab" aria-selected="true">Login</button>
                 <button type="button" class="auth-tab" data-tab="register" id="authTabRegister" role="tab" aria-selected="false">Register</button>
             </div>
             <div class="auth-modal-message" id="authModalMessage" role="alert" hidden></div>
-            <form class="auth-form active" data-form="login" role="tabpanel" aria-labelledby="authTabLogin" novalidate>
+            <form class="auth-form active" data-form="login" aria-labelledby="authTabLogin" novalidate>
                 <label class="auth-label" for="authLoginField">Email or Phone</label>
                 <input class="auth-input" type="text" id="authLoginField" name="login" autocomplete="username" required>
                 <label class="auth-label" for="authLoginPassword">Password</label>
                 <input class="auth-input" type="password" id="authLoginPassword" name="password" autocomplete="current-password" required>
                 <button type="submit" class="auth-submit">LOGIN</button>
             </form>
-            <form class="auth-form" data-form="register" role="tabpanel" aria-labelledby="authTabRegister" novalidate hidden>
+            <form class="auth-form" data-form="register" aria-labelledby="authTabRegister" novalidate hidden>
                 <label class="auth-label" for="authRegisterName">Name</label>
                 <input class="auth-input" type="text" id="authRegisterName" name="name" autocomplete="name" required>
                 <label class="auth-label" for="authRegisterEmail">Email (optional)</label>
@@ -3367,9 +3371,10 @@ function createCartPanel() {
     const panel = document.createElement('aside');
     panel.className = 'cart-panel';
     panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('inert', '');
     panel.innerHTML = `
         <div class="cart-header">
-            <h3>YOUR CART</h3>
+            <p class="drawer-title">YOUR CART</p>
             <button class="cart-close" aria-label="Close cart">&times;</button>
         </div>
         <div class="cart-items"></div>
@@ -3469,7 +3474,7 @@ function getWishlistKey(btn) {
     if (stableId) return stableId;
     const label = btn.getAttribute('aria-label');
     if (label) return label.replace(/^Add /, '').replace(/ to wishlist$/i, '').trim();
-    const heading = card ? card.querySelector('h4') : document.querySelector('.product-details-info h1');
+    const heading = card ? card.querySelector('h3') : document.querySelector('.product-details-info h1');
     if (heading) return heading.textContent.trim();
     const img = card ? card.querySelector('img') : null;
     return img ? img.alt : 'item';
@@ -3912,9 +3917,10 @@ function createWishlistPanel() {
     const panel = document.createElement('aside');
     panel.className = 'wishlist-panel';
     panel.setAttribute('aria-hidden', 'true');
+    panel.setAttribute('inert', '');
     panel.innerHTML = `
         <div class="wishlist-header">
-            <h3>YOUR WISHLIST</h3>
+            <p class="drawer-title">YOUR WISHLIST</p>
             <button type="button" class="wishlist-close" aria-label="Close wishlist">&times;</button>
         </div>
         <div class="wishlist-items"></div>
