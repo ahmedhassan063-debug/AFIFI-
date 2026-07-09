@@ -3979,14 +3979,30 @@ body.account-sheet-open {
     cursor: pointer;
     background: transparent;
     font-family: var(--font-accent), sans-serif;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.account-actions .story-btn:hover,
+.account-actions .story-btn:focus-visible,
+.account-actions .story-btn:active {
+    background: var(--black);
+    border-color: var(--black);
+    color: var(--white);
+}
+
+.account-actions .story-btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
 }
 
 .account-btn-secondary {
-    border-color: #ccc;
-    color: #555;
+    border-color: var(--line);
+    color: var(--black);
 }
 
-.account-btn-secondary:hover {
+.account-actions .account-btn-secondary:hover,
+.account-actions .account-btn-secondary:focus-visible,
+.account-actions .account-btn-secondary:active {
     background: var(--black);
     border-color: var(--black);
     color: var(--white);
