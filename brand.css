@@ -383,16 +383,6 @@ html body {
     min-block-size: clamp(14px, 2vw, 20px);
 }
 
-.hero-kicker {
-    display: inline-flex;
-    margin-bottom: 14px;
-    font-family: var(--font-accent), sans-serif;
-    font-size: 12px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--gold);
-}
-
 .hero-actions {
     display: flex;
     align-items: center;
@@ -758,63 +748,6 @@ html body {
     pointer-events: none;
 }
 
-/* Homepage product skeletons — shared New Arrivals grid + Best Sellers carousel */
-.new-arrivals .shop-skeleton-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    min-width: 0;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.best-sellers .shop-skeleton-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    min-width: 0;
-    box-sizing: border-box;
-}
-
-.new-arrivals .shop-skeleton-img,
-.best-sellers .shop-skeleton-img {
-    width: 100%;
-    aspect-ratio: 3 / 4;
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    box-sizing: border-box;
-    background: linear-gradient(90deg, #ece8e1 25%, #f6f3ee 50%, #ece8e1 75%);
-    background-color: #f6f3ee;
-    background-size: 200% 100%;
-    animation: product-skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
-.new-arrivals .shop-skeleton-line,
-.best-sellers .shop-skeleton-line {
-    margin: 12px 4px 0;
-    height: 13px;
-    width: 72%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, #ece8e1 25%, #f6f3ee 50%, #ece8e1 75%);
-    background-size: 200% 100%;
-    animation: product-skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
-.new-arrivals .shop-skeleton-line.short,
-.best-sellers .shop-skeleton-line.short {
-    margin-top: 6px;
-    width: 42%;
-    height: 13px;
-}
-
-.carousel-track .shop-skeleton-card {
-    flex: 0 0 180px;
-    width: 180px;
-    min-width: 180px;
-    flex-shrink: 0;
-    scroll-snap-align: start;
-}
-
 .product-card {
     cursor: pointer;
     min-width: 0;
@@ -1124,15 +1057,6 @@ html body {
 .best-sellers .carousel-wrapper:has(.carousel-track.is-loading) .carousel-arrow {
     visibility: hidden;
     pointer-events: none;
-}
-
-@media (min-width: 769px) {
-    .best-sellers .carousel-track.is-loading > .shop-skeleton-card {
-        flex: 0 0 180px;
-        width: 180px;
-        min-width: 180px;
-        max-width: 180px;
-    }
 }
 
 .carousel-track {
@@ -3181,14 +3105,6 @@ body.drawer-open {
         scroll-snap-align: none;
     }
 
-    .carousel-track .shop-skeleton-card {
-        flex: unset;
-        width: 100%;
-        min-width: 0;
-        max-width: none;
-        scroll-snap-align: none;
-    }
-
     .carousel-track .home-products-empty,
     .carousel-track .home-products-error {
         grid-column: 1 / -1;
@@ -3408,14 +3324,6 @@ body.drawer-open {
         font-size: 11px;
         line-height: 1.35;
         min-height: 30px;
-    }
-
-    .carousel-track .shop-skeleton-line {
-        height: 11px;
-    }
-
-    .carousel-track .shop-skeleton-line.short {
-        height: 11px;
     }
 
     .carousel-track .product-info p {
