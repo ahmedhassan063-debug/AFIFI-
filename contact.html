@@ -10,18 +10,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
     <link rel="manifest" href="images/favicon/site.webmanifest">
     <meta name="theme-color" content="#0D0D0D">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.37">
+    <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="brand.css?v=1.40">
     <title>AFIFI | CONTACT US</title>
     <meta name="description" content="Get in touch with AFIFI. Reach us via WhatsApp, email, or our contact form for orders and support.">
 </head>
 <body>
 
 <nav class="navbar navbar-solid">
-    <a href="index.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo"></a>
+    <a href="index.html" aria-label="AFIFI home"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt=""></a>
     <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
     </button>
@@ -33,12 +30,14 @@
             <a href="contact.html" class="active">Contact</a>
         </div>
         <div class="icons">
-            <a href="#"><img src="images/search icon.svg" alt="Search"></a>
-            <a href="#"><img src="images/cart.svg" alt="Cart"></a>
-            <a href="#"><img src="images/profile.svg" alt="Profile"></a>
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt=""></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt=""></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt=""></a>
         </div>
     </div>
 </nav>
+
+<main id="main-content">
 
 <!--PAGE HEADER-->
 <section class="page-header">
@@ -55,11 +54,15 @@
         <p>Have a question or feedback? We'd love to hear from you.</p>
         <form class="contact-form" id="contactForm">
             <div class="form-row">
-                <input type="text" placeholder="Your Name" required>
-                <input type="email" placeholder="Your Email" required>
+                <label for="contactName" class="visually-hidden">Your name</label>
+                <input type="text" id="contactName" placeholder="Your Name" required>
+                <label for="contactEmail" class="visually-hidden">Your email</label>
+                <input type="email" id="contactEmail" placeholder="Your Email" required>
             </div>
-            <input type="text" placeholder="Subject">
-            <textarea placeholder="Your Message" rows="6" required></textarea>
+            <label for="contactSubject" class="visually-hidden">Subject</label>
+            <input type="text" id="contactSubject" placeholder="Subject">
+            <label for="contactMessage" class="visually-hidden">Your message</label>
+            <textarea id="contactMessage" placeholder="Your Message" rows="6" required></textarea>
             <button type="submit" class="submit-btn">SEND MESSAGE</button>
             <p class="form-demo-note">This form is a demo and is not connected yet. For real inquiries, please reach us on WhatsApp or email.</p>
         </form>
@@ -73,7 +76,7 @@
                     <polyline points="22,6 12,13 2,6"/>
                 </svg>
             </div>
-            <h4>EMAIL</h4>
+            <h3>EMAIL</h3>
             <a href="#">info@afifibrands.com</a>
         </div>
         <div class="contact-card">
@@ -82,7 +85,7 @@
                     <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
                 </svg>
             </div>
-            <h4>PHONE</h4>
+            <h3>PHONE</h3>
             <p>011 09960670</p>
         </div>
         <div class="contact-card">
@@ -92,18 +95,20 @@
                     <circle cx="12" cy="10" r="3"/>
                 </svg>
             </div>
-            <h4>VISIT US</h4>
+            <h3>VISIT US</h3>
             <p>15 May City, Cairo, Egypt</p>
             <a href="https://maps.app.goo.gl/en6tNCzv77YFJTUG7">Location</a>
         </div>
         <div class="contact-card hours-card">
-            <h4>WORKING HOURS</h4>
+            <h3>WORKING HOURS</h3>
             <p>ALL DAYS : 10AM - 2AM</p>
         </div>
     </div>
 </section>
 
 <!--FOOTER-->
+</main>
+
 <footer class="site-footer">
     <div class="footer-main">
         <div class="footer-brand">
@@ -132,11 +137,11 @@
             </div>
         </div>
         <div class="footer-links">
-            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="#">T-Shirts</a><a
+            <div class="footer-col"><h3>SHOP</h3><a href="shop.html">All Products</a><a href="#">T-Shirts</a><a
                     href="#">Hoodies</a><a href="#">Pants</a><a href="#">Accessories</a></div>
-            <div class="footer-col"><h4>COMPANY</h4><a href="about.html">Our
+            <div class="footer-col"><h3>COMPANY</h3><a href="about.html">Our
                 Story</a><a href="contact.html">Contact Us</a></div>
-            <div class="footer-col"><h4>SUPPORT</h4><a href="support.html">FAQ</a></div>
+            <div class="footer-col"><h3>SUPPORT</h3><a href="support.html">FAQ</a></div>
         </div>
     </div>
     <div class="footer-bottom">
@@ -153,6 +158,6 @@
   Example:
   <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
 -->
-<script src="brand.js?v=1.32"></script>
+<script src="brand.js?v=1.33"></script>
 </body>
 </html>

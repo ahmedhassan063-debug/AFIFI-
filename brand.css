@@ -1,6 +1,91 @@
+/* ========== SELF-HOSTED FONTS (SIL Open Font License) ========== */
+/* font-display: optional — no visible swap; metric fallbacks fill slow loads */
+
+@font-face {
+    font-family: 'Bebas Neue';
+    font-style: normal;
+    font-weight: 400;
+    font-display: optional;
+    src: url('fonts/bebas-neue-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 500;
+    font-display: optional;
+    src: url('fonts/montserrat-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 600;
+    font-display: optional;
+    src: url('fonts/montserrat-600-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 700;
+    font-display: optional;
+    src: url('fonts/montserrat-700-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 300;
+    font-display: optional;
+    src: url('fonts/poppins-300-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 400;
+    font-display: optional;
+    src: url('fonts/poppins-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 500;
+    font-display: optional;
+    src: url('fonts/poppins-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 600;
+    font-display: optional;
+    src: url('fonts/poppins-600-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 700;
+    font-display: optional;
+    src: url('fonts/poppins-700-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
     --black: #0D0D0D;
     --gold: #CBA96A;
+    --gold-text: #94704A;
     --grey: #A3A3A3;
     --white : #F5F5F5;
     --paper: #FAFAF7;
@@ -8,10 +93,10 @@
     --radius : 8px;
     --transform: translateY(-8px);
 
-    /* Fonts */
-    --font-heading: 'Bebas Neue', sans-serif;       /* Titles - AFIFI, section headings */
-    --font-body: 'Poppins', sans-serif;              /* General text - nav links, paragraphs */
-    --font-accent: 'Montserrat', sans-serif;         /* Buttons, subtitles, descriptions */
+    /* Fonts — fallback faces use size-adjust metrics defined below */
+    --font-heading: 'Bebas Neue', 'Bebas Neue Fallback', sans-serif;
+    --font-body: 'Poppins', sans-serif;
+    --font-accent: 'Montserrat', 'Montserrat Fallback', sans-serif;
 
     /* Spacing */
     --padding-page: 5%;
@@ -44,7 +129,7 @@ html {
 @font-face {
     font-family: 'Montserrat Fallback';
     font-style: normal;
-    font-weight: 500;
+    font-weight: 500 700;
     src: local('Arial');
     size-adjust: 97%;
     ascent-override: 95%;
@@ -275,32 +360,12 @@ html body {
     z-index: 2;
     text-align: left;
     color: var(--white);
-    transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.hero.hero-fonts-loading .hero-content {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.hero.hero-fonts-ready .hero-content {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-@media (min-width: 769px) {
-    .hero.hero-fonts-loading .hero-content {
-        transform: translateY(calc(-50% + 10px));
-    }
-
-    .hero.hero-fonts-ready .hero-content {
-        transform: translateY(-50%);
-    }
 }
 
 .hero-content h1 {
-    font-family: 'Bebas Neue', 'Bebas Neue Fallback', sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(72px, 13vw, 168px);
+    font-weight: 400;
     letter-spacing: 0;
     margin-bottom: 10px;
     line-height: 0.85;
@@ -308,7 +373,7 @@ html body {
 }
 
 .hero-content p {
-    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
+    font-family: var(--font-accent);
     font-size: clamp(14px, 2vw, 20px);
     font-weight: 500;
     letter-spacing: 3px;
@@ -342,7 +407,7 @@ html body {
     background: transparent;
     border: 2px solid var(--gold);
     color: var(--gold);
-    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
+    font-family: var(--font-accent);
     font-size: 14px;
     font-weight: 500;
     letter-spacing: 3px;
@@ -358,7 +423,7 @@ html body {
 }
 
 .hero-link {
-    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
+    font-family: var(--font-accent);
     font-size: 13px;
     font-weight: 500;
     color: var(--white);
@@ -373,24 +438,6 @@ html body {
 .hero-link:hover {
     color: var(--gold);
     border-color: var(--gold);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .hero-content {
-        transition: none;
-    }
-
-    .hero.hero-fonts-loading .hero-content,
-    .hero.hero-fonts-ready .hero-content {
-        transform: translateY(-50%);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) and (max-width: 768px) {
-    .hero.hero-fonts-loading .hero-content,
-    .hero.hero-fonts-ready .hero-content {
-        transform: none;
-    }
 }
 
 /* ========== TRUST STRIP ========== */
@@ -513,9 +560,12 @@ html body {
 }
 
 .arrivals-header h2 {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(24px, 3vw, 36px);
+    font-weight: 400;
     letter-spacing: 4px;
+    line-height: 1;
+    min-block-size: clamp(24px, 3vw, 36px);
     margin: 0;
     color: var(--black);
 }
@@ -593,7 +643,7 @@ html body {
 .home-section-loading-text {
     font-family: var(--font-body), sans-serif;
     font-size: 13px;
-    color: #888;
+    color: #6B6B6B;
     margin: 0;
 }
 
@@ -632,8 +682,12 @@ html body {
 
 .home-products-empty-title,
 .home-products-error-title {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(20px, 2.5vw, 28px);
+    font-weight: 400;
+    letter-spacing: 2px;
+    line-height: 1;
+    min-block-size: clamp(20px, 2.5vw, 28px);
     margin: 0 0 8px 0;
     color: var(--black);
 }
@@ -642,7 +696,7 @@ html body {
 .home-products-error-text {
     font-family: var(--font-body), sans-serif;
     font-size: 14px;
-    color: #777;
+    color: #6B6B6B;
     margin: 0 0 20px 0;
 }
 
@@ -1157,7 +1211,7 @@ html body {
     max-width: 340px;
 }
 
-.footer-newsletter h4 {
+.footer-newsletter h3 {
     font-family: var(--font-accent), sans-serif;
     font-size: 13px;
     font-weight: 700;
@@ -1245,7 +1299,7 @@ html body {
     gap: 10px;
 }
 
-.footer-col h4 {
+.footer-col h3 {
     font-family: var(--font-accent), sans-serif;
     font-size: 13px;
     font-weight: 700;
@@ -1324,28 +1378,14 @@ html body {
 }
 
 .page-header h1 {
-    font-family: 'Bebas Neue', 'Bebas Neue Fallback', sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(32px, 5vw, 56px);
+    font-weight: 400;
     color: var(--white);
     letter-spacing: 6px;
-    margin: 0 0 12px 0;
     line-height: 1;
+    margin: 0 0 12px 0;
     min-block-size: clamp(32px, 5vw, 56px);
-    transition: opacity 0.35s ease;
-}
-
-.page-header.shop-fonts-loading h1 {
-    opacity: 0;
-}
-
-.page-header.shop-fonts-ready h1 {
-    opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .page-header h1 {
-        transition: none;
-    }
 }
 
 .breadcrumbs {
@@ -1400,7 +1440,7 @@ html body {
     margin-bottom: 0;
 }
 
-.filter-group h3 {
+.filter-group h2 {
     font-family: var(--font-accent), sans-serif;
     font-size: 11px;
     font-weight: 700;
@@ -1471,7 +1511,7 @@ html body {
     font-family: var(--font-accent), sans-serif;
     font-size: 12px;
     letter-spacing: 1px;
-    color: #777;
+    color: #6B6B6B;
 }
 
 .shop-grid {
@@ -1526,9 +1566,12 @@ html body {
 }
 
 .shop-empty-title {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: 26px;
+    font-weight: 400;
     letter-spacing: 2px;
+    line-height: 1;
+    min-block-size: 26px;
     color: var(--black);
     margin: 0 0 8px 0;
 }
@@ -1568,8 +1611,12 @@ html body {
 }
 
 .shop-error-title {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: 26px;
+    font-weight: 400;
+    line-height: 1;
+    min-block-size: 26px;
+    letter-spacing: 2px;
     margin: 0 0 10px 0;
     color: var(--black);
 }
@@ -1953,7 +2000,16 @@ body.search-open {
 .thumb:hover, .thumb.active-thumb { opacity: 1; border-color: var(--gold); }
 
 .product-details-info { flex: 1; }
-.product-details-info h1 { font-family: var(--font-heading), sans-serif; font-size: clamp(28px, 4vw, 42px); letter-spacing: 3px; margin: 0 0 10px 0; color: var(--black); }
+.product-details-info h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 400;
+    letter-spacing: 3px;
+    line-height: 1;
+    min-block-size: clamp(28px, 4vw, 42px);
+    margin: 0 0 10px 0;
+    color: var(--black);
+}
 .product-price { font-family: var(--font-accent), sans-serif; font-size: 22px; font-weight: 700; color: var(--gold); margin: 0 0 20px 0; }
 .product-desc { font-family: var(--font-body), sans-serif; font-size: 14px; line-height: 1.7; color: #555; margin: 0 0 25px 0; }
 
@@ -2098,7 +2154,17 @@ body.search-open {
 
 /* Related Products */
 .related-products { padding: 0 var(--padding-page) var(--padding-section); }
-.related-products h2 { font-family: var(--font-heading), sans-serif; font-size: clamp(24px, 3vw, 36px); letter-spacing: 4px; margin: 0 0 var(--gap-large) 0; text-align: center; color: var(--black); }
+.related-products h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 400;
+    letter-spacing: 4px;
+    line-height: 1;
+    min-block-size: clamp(24px, 3vw, 36px);
+    margin: 0 0 var(--gap-large) 0;
+    text-align: center;
+    color: var(--black);
+}
 .related-grid { grid-template-columns: repeat(4, 1fr); }
 
 /* ========== ABOUT PAGE ========== */
@@ -2107,7 +2173,17 @@ body.search-open {
 .story-image { flex: 1; background: #f0f0f0; border-radius: var(--radius); overflow: hidden; min-height: 400px; display: flex; align-items: center; justify-content: center; }
 .story-image img { width: 100%; height: 100%; object-fit: cover; }
 .story-text { flex: 1; }
-.section-label { font-family: var(--font-accent), sans-serif; font-size: 12px; letter-spacing: 4px; color: var(--gold); font-weight: 600; display: block; margin-bottom: 12px; }
+.section-label {
+    font-family: var(--font-accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--gold-text);
+    display: block;
+    margin-bottom: 12px;
+    line-height: 1.2;
+    min-block-size: calc(12px * 1.2);
+}
 .story-text h2 { font-family: var(--font-heading), sans-serif; font-size: clamp(28px, 4vw, 44px); letter-spacing: 2px; margin: 0 0 20px 0; color: var(--black); }
 .story-text p { font-family: var(--font-body), sans-serif; font-size: 15px; line-height: 1.8; color: #555; margin: 0 0 18px 0; }
 
@@ -2136,7 +2212,7 @@ body.search-open {
 .contact-section { display: flex; gap: 50px; padding: var(--padding-section) var(--padding-page); flex-wrap: wrap; }
 .contact-form-wrapper { flex: 1.2; min-width: 300px; }
 .contact-form-wrapper h2 { font-family: var(--font-heading), sans-serif; font-size: clamp(28px, 4vw, 40px); letter-spacing: 2px; margin: 0 0 8px 0; color: var(--black); }
-.contact-form-wrapper > p { font-family: var(--font-body), sans-serif; font-size: 14px; color: #777; margin: 0 0 30px 0; }
+.contact-form-wrapper > p { font-family: var(--font-body), sans-serif; font-size: 14px; color: #6B6B6B; margin: 0 0 30px 0; }
 
 .contact-form { display: flex; flex-direction: column; gap: 15px; }
 .form-row { display: flex; gap: 15px; }
@@ -2150,9 +2226,13 @@ body.search-open {
 
 .form-demo-note {
     font-size: 11px;
-    opacity: 0.65;
     margin-top: 10px;
     line-height: 1.5;
+    color: #6B6B6B;
+}
+
+.footer-newsletter .form-demo-note {
+    color: var(--grey);
 }
 .contact-form textarea { resize: vertical; }
 
@@ -2165,13 +2245,13 @@ body.search-open {
 
 .contact-info-wrapper { flex: 0.8; display: flex; flex-direction: column; gap: 18px; min-width: 280px; }
 .contact-card { padding: 25px; background: #fafafa; border-radius: var(--radius); border: 1px solid #eee; }
-.contact-icon { color: var(--gold); margin-bottom: 10px; }
-.contact-card h4 { font-family: var(--font-accent), sans-serif; font-size: 13px; letter-spacing: 2px; margin: 0 0 8px 0; color: var(--black); }
+.contact-icon { color: var(--gold-text); margin-bottom: 10px; }
+.contact-card h3 { font-family: var(--font-accent), sans-serif; font-size: 13px; letter-spacing: 2px; margin: 0 0 8px 0; color: var(--black); }
 .contact-card p { font-family: var(--font-body), sans-serif; font-size: 14px; color: #555; margin: 0 0 4px 0; }
 .contact-card a { font-family: var(--font-body), sans-serif; font-size: 14px; color: #555; margin: 0 0 4px 0;text-decoration: none; transition: color 0.3s ease}
 .contact-card a:hover {color: var(--gold);}
 .hours-card { background: var(--black); border-color: var(--black); }
-.hours-card h4 { color: var(--white); }
+.hours-card h3 { color: var(--white); }
 .hours-card p { color: var(--grey); }
 
 /* ========== SUPPORT PAGE ========== */
@@ -2760,14 +2840,6 @@ body.drawer-open {
         text-align: center;
     }
 
-    .hero.hero-fonts-loading .hero-content {
-        transform: translateY(10px);
-    }
-
-    .hero.hero-fonts-ready .hero-content {
-        transform: translateY(0);
-    }
-
     .hero-content h1 {
         font-size: clamp(92px, 25vw, 132px);
         line-height: 0.88;
@@ -3117,7 +3189,7 @@ body.drawer-open {
         overflow: visible;
     }
 
-    .filter-group h3 {
+    .filter-group h2 {
         margin-bottom: 14px;
     }
 
@@ -3202,7 +3274,7 @@ body.drawer-open {
         padding: 22px 18px 26px;
     }
 
-    .filter-group h3 {
+    .filter-group h2 {
         margin-bottom: 12px;
     }
 
@@ -3760,9 +3832,12 @@ body.account-sheet-open {
 }
 
 .account-intro h2 {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(28px, 4vw, 40px);
+    font-weight: 400;
     letter-spacing: 2px;
+    line-height: 1;
+    min-block-size: clamp(28px, 4vw, 40px);
     margin: 0 0 10px 0;
     color: var(--black);
 }
@@ -4012,9 +4087,12 @@ body.account-sheet-open {
 }
 
 .account-order-detail-header h2 {
-    font-family: var(--font-heading), sans-serif;
+    font-family: var(--font-heading);
     font-size: clamp(22px, 3vw, 32px);
+    font-weight: 400;
     letter-spacing: 2px;
+    line-height: 1;
+    min-block-size: clamp(22px, 3vw, 32px);
     margin: 0;
     color: var(--black);
 }

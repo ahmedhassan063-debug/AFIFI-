@@ -10,25 +10,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
     <link rel="manifest" href="images/favicon/site.webmanifest">
     <meta name="theme-color" content="#0D0D0D">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.37">
+    <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="brand.css?v=1.40">
     <title>AFIFI | SHOP</title>
     <meta name="description" content="Shop the full AFIFI collection - premium streetwear tees, hoodies, pants, and accessories from an original Egyptian brand.">
-    <style id="shop-font-gate">
-        .page-header.shop-fonts-loading h1 {
-            opacity: 0;
-        }
-        .page-header.shop-fonts-ready h1 {
-            opacity: 1;
-        }
-    </style>
 </head>
 <body>
 
 <nav class="navbar navbar-solid">
-    <a href="index.html"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt="Logo"></a>
+    <a href="index.html" aria-label="AFIFI home"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt=""></a>
     <button class="hamburger" id="hamburger" aria-label="Menu">
         <span></span><span></span><span></span>
     </button>
@@ -40,14 +30,16 @@
             <a href="contact.html">Contact</a>
         </div>
         <div class="icons">
-            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt="Search"></a>
-            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt="Cart"></a>
-            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt="Profile"></a>
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt=""></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt=""></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt=""></a>
         </div>
     </div>
 </nav>
 
-<section class="page-header shop-fonts-loading" id="shopPageHeader">
+<main id="main-content">
+
+<section class="page-header" id="shopPageHeader">
     <h1>OUR COLLECTION</h1>
     <div class="breadcrumbs">
         <a href="index.html">Home</a> <span>&rsaquo;</span> <span>Shop</span>
@@ -58,14 +50,14 @@
     <aside class="shop-sidebar">
         <div class="shop-controls">
             <div class="filter-group filter-group-search">
-                <h3>Search</h3>
+                <h2>Search</h2>
                 <form id="shopSearchForm" class="shop-search-form" role="search">
                     <label for="shopSearchInput" class="visually-hidden">Search products</label>
                     <input type="search" id="shopSearchInput" class="shop-search-input" placeholder="Search products…" autocomplete="off">
                 </form>
             </div>
             <div class="filter-group filter-group-categories">
-                <h3>Categories</h3>
+                <h2>Categories</h2>
                 <div class="filter-btn-list" role="group" aria-label="Product categories">
                     <button class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
                     <button class="filter-btn" data-filter="t-shirts" aria-pressed="false">T-Shirts</button>
@@ -75,7 +67,7 @@
                 </div>
             </div>
             <div class="filter-group filter-group-sort">
-                <h3>Sort By</h3>
+                <h2>Sort By</h2>
                 <select class="sort-select" aria-label="Sort products">
                     <option value="newest">Newest</option>
                     <option value="low-high">Price: Low to High</option>
@@ -110,6 +102,8 @@
     </div>
 </section>
 
+</main>
+
 <footer class="site-footer">
     <div class="footer-main">
         <div class="footer-brand">
@@ -122,9 +116,9 @@
             </div>
         </div>
         <div class="footer-links">
-            <div class="footer-col"><h4>SHOP</h4><a href="shop.html">All Products</a><a href="shop.html">T-Shirts</a><a href="shop.html">Hoodies</a><a href="shop.html">Pants</a><a href="shop.html">Accessories</a></div>
-            <div class="footer-col"><h4>COMPANY</h4><a href="about.html">Our Story</a><a href="contact.html">Contact Us</a></div>
-            <div class="footer-col"><h4>SUPPORT</h4><a href="support.html">FAQ</a><a href="support.html#shipping">Shipping & Returns</a><a href="support.html#size-guide">Size Guide</a></div>
+            <div class="footer-col"><h3>SHOP</h3><a href="shop.html">All Products</a><a href="shop.html">T-Shirts</a><a href="shop.html">Hoodies</a><a href="shop.html">Pants</a><a href="shop.html">Accessories</a></div>
+            <div class="footer-col"><h3>COMPANY</h3><a href="about.html">Our Story</a><a href="contact.html">Contact Us</a></div>
+            <div class="footer-col"><h3>SUPPORT</h3><a href="support.html">FAQ</a><a href="support.html#shipping">Shipping & Returns</a><a href="support.html#size-guide">Size Guide</a></div>
         </div>
     </div>
     <div class="footer-bottom">
@@ -141,6 +135,6 @@
   Example:
   <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
 -->
-<script src="brand.js?v=1.32"></script>
+<script src="brand.js?v=1.33"></script>
 </body>
 </html>

@@ -10,27 +10,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
     <link rel="manifest" href="images/favicon/site.webmanifest">
     <meta name="theme-color" content="#0D0D0D">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="https://fonts.gstatic.com/s/bebasneue/v16/JTUSjIg69CK48gW7PXooxW4.ttf" as="font" type="font/ttf" crossorigin>
-    <link rel="preload" href="https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtZ6Ew-.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/montserrat-500-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" as="image" type="image/avif" imagesrcset="images/hero/slide-1-768.avif 768w, images/hero/slide-1-1280.avif 1280w, images/hero/slide-1-1920.avif 1920w" imagesizes="100vw">
     <link rel="preload" as="image" type="image/webp" imagesrcset="images/hero/slide-1-768.webp 768w, images/hero/slide-1-1280.webp 1280w, images/hero/slide-1-1920.webp 1920w" imagesizes="100vw">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="brand.css?v=1.37">
+    <link rel="stylesheet" href="brand.css?v=1.40">
     <title>AFIFI | CLOTHING BRAND</title>
     <meta name="description" content="AFIFI - premium Egyptian streetwear brand. Shop original tees, hoodies, pants, and accessories built for everyday rotation.">
-    <style id="hero-font-gate">
-        .hero.hero-fonts-loading .hero-content {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .hero.hero-fonts-ready .hero-content {
-            opacity: 1;
-            pointer-events: auto;
-        }
-    </style>
 </head>
 <body>
 
@@ -47,14 +33,16 @@
             <a href="contact.html">Contact</a>
         </div>
         <div class="icons">
-            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt="Search"></a>
-            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt="Cart"></a>
-            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt="Profile"></a>
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt=""></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt=""></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt=""></a>
         </div>
     </div>
 </nav>
 
-<section class="hero hero-fonts-loading">
+<main id="main-content">
+
+<section class="hero">
     <div class="hero-slides">
         <picture>
             <source type="image/avif" sizes="100vw" srcset="images/hero/slide-1-768.avif 768w, images/hero/slide-1-1280.avif 1280w, images/hero/slide-1-1920.avif 1920w">
@@ -205,6 +193,8 @@
     </div>
 </section>
 
+</main>
+
 <footer class="site-footer">
     <div class="footer-main">
         <div class="footer-brand">
@@ -217,7 +207,7 @@
             </div>
         </div>
         <div class="footer-newsletter">
-            <h4>GET THE DROP FIRST</h4>
+            <h3>GET THE DROP FIRST</h3>
             <p>New arrivals, offers, and restocks straight to your inbox.</p>
             <form class="newsletter-form">
                 <input type="email" placeholder="Email address" aria-label="Email address">
@@ -227,7 +217,7 @@
         </div>
         <div class="footer-links">
             <div class="footer-col">
-                <h4>SHOP</h4>
+                <h3>SHOP</h3>
                 <a href="shop.html">All Products</a>
                 <a href="shop.html">T-Shirts</a>
                 <a href="shop.html">Hoodies</a>
@@ -235,12 +225,12 @@
                 <a href="shop.html">Accessories</a>
             </div>
             <div class="footer-col">
-                <h4>COMPANY</h4>
+                <h3>COMPANY</h3>
                 <a href="about.html">Our Story</a>
                 <a href="contact.html">Contact Us</a>
             </div>
             <div class="footer-col">
-                <h4>SUPPORT</h4>
+                <h3>SUPPORT</h3>
                 <a href="support.html#size-guide">Size Guide</a>
                 <a href="support.html#shipping">Shipping & Returns</a>
             </div>
@@ -263,6 +253,6 @@
   Example:
   <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
 -->
-<script src="brand.js?v=1.32"></script>
+<script src="brand.js?v=1.33"></script>
 </body>
 </html>
