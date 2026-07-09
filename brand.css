@@ -1220,7 +1220,8 @@ html body {
     min-width: 0;
 }
 
-.shop-grid.is-loading .shop-empty {
+.shop-grid.is-loading .shop-empty,
+.shop-grid.is-loading .shop-error {
     display: none !important;
 }
 
@@ -1293,6 +1294,52 @@ html body {
 .shop-empty-clear:hover {
     background: var(--gold);
     color: var(--black);
+}
+
+.shop-error {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 70px 24px;
+    border: 1px dashed #e0b4b4;
+    border-radius: var(--radius);
+    background: #fff8f8;
+}
+
+.shop-error-title {
+    font-family: var(--font-heading), sans-serif;
+    font-size: 26px;
+    margin: 0 0 10px 0;
+    color: var(--black);
+}
+
+.shop-error-text {
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    color: #8a4a4a;
+    margin: 0 0 22px 0;
+}
+
+.shop-error-retry {
+    padding: 12px 32px;
+    background: #7a2e2e;
+    color: var(--white);
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font-accent), sans-serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.shop-error-retry:hover:not(:disabled) {
+    background: var(--gold);
+    color: var(--black);
+}
+
+.shop-error-retry:disabled {
+    opacity: 0.72;
+    cursor: wait;
 }
 
 .shop-search-input {

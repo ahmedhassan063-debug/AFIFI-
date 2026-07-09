@@ -910,6 +910,8 @@ let shopCards = shopGrid ? Array.from(shopGrid.querySelectorAll('.product-card')
 const sortSelect = document.querySelector('.sort-select');
 const shopCount = document.getElementById('shopCount');
 const shopEmpty = document.getElementById('shopEmpty');
+const shopError = document.getElementById('shopError');
+const shopRetryLoad = document.getElementById('shopRetryLoad');
 const shopClearFilters = document.getElementById('shopClearFilters');
 const shopSearchInput = document.getElementById('shopSearchInput');
 const shopSearchForm = document.getElementById('shopSearchForm');
@@ -917,6 +919,11 @@ const filterBtns = document.querySelectorAll('.filter-btn');
 let activeFilter = 'all';
 let activeShopSearch = '';
 let shopProductsReady = false;
+let shopLoadFailed = false;
+let shopLoadErrorLogged = false;
+let shopRetryInFlight = false;
+
+const SHOP_SKELETON_COUNT = 8;
 
 // Maps the static filter button values to the real backend category slugs
 // they represent. Static fallback cards already use these exact values as
@@ -960,6 +967,64 @@ function setShopLoadingState(isLoading) {
     if (shopEmpty && isLoading) {
         shopEmpty.hidden = true;
     }
+    if (shopError && isLoading) {
+        shopError.hidden = true;
+    }
+}
+
+function resetShopEmptyCopy() {
+    if (!shopEmpty) return;
+    const title = shopEmpty.querySelector('.shop-empty-title');
+    const text = shopEmpty.querySelector('.shop-empty-text');
+    if (title) title.textContent = 'No products found.';
+    if (text) text.textContent = 'Try another category or clear filters.';
+}
+
+function showShopLoadError() {
+    shopLoadFailed = true;
+    shopProductsReady = false;
+    setShopLoadingState(false);
+    shopCards = [];
+    if (shopEmpty) shopEmpty.hidden = true;
+    if (shopError) {
+        shopError.hidden = false;
+        shopGrid.appendChild(shopError);
+    }
+    if (shopCount) shopCount.textContent = '0 products';
+}
+
+function hideShopLoadError() {
+    shopLoadFailed = false;
+    if (shopError) shopError.hidden = true;
+}
+
+function restoreShopSkeletonCards() {
+    if (!shopGrid) return;
+    shopGrid.querySelectorAll('.shop-skeleton-card').forEach(el => el.remove());
+    const insertBefore = shopEmpty || shopError || null;
+    for (let i = 0; i < SHOP_SKELETON_COUNT; i += 1) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'shop-skeleton-card';
+        skeleton.setAttribute('aria-hidden', 'true');
+        skeleton.innerHTML = '<div class="shop-skeleton-img"></div><div class="shop-skeleton-line"></div><div class="shop-skeleton-line short"></div>';
+        if (insertBefore) shopGrid.insertBefore(skeleton, insertBefore);
+        else shopGrid.appendChild(skeleton);
+    }
+}
+
+function setShopRetryUi(isRetrying) {
+    if (!shopRetryLoad) return;
+    const defaultText = shopRetryLoad.dataset.defaultText || 'Retry';
+    shopRetryLoad.disabled = isRetrying;
+    shopRetryLoad.setAttribute('aria-disabled', isRetrying ? 'true' : 'false');
+    shopRetryLoad.textContent = isRetrying ? 'Retrying...' : defaultText;
+    if (shopError) {
+        shopError.setAttribute('aria-busy', isRetrying ? 'true' : 'false');
+    }
+}
+
+if (shopRetryLoad && !shopRetryLoad.dataset.defaultText) {
+    shopRetryLoad.dataset.defaultText = shopRetryLoad.textContent.trim() || 'Retry';
 }
 
 function setActiveFilter(filterValue) {
@@ -975,11 +1040,23 @@ function setActiveFilter(filterValue) {
 function updateShopGrid() {
     if (!shopGrid) return;
 
-    if (!shopProductsReady) {
-        setShopLoadingState(true);
+    if (shopLoadFailed) {
+        if (shopError) {
+            shopError.hidden = false;
+            shopGrid.appendChild(shopError);
+        }
         if (shopEmpty) shopEmpty.hidden = true;
         return;
     }
+
+    if (!shopProductsReady) {
+        setShopLoadingState(true);
+        if (shopEmpty) shopEmpty.hidden = true;
+        if (shopError) shopError.hidden = true;
+        return;
+    }
+
+    hideShopLoadError();
 
     const sortedCards = [...shopCards].sort((a, b) => {
         const sortValue = sortSelect ? sortSelect.value : 'newest';
@@ -1025,6 +1102,12 @@ if (shopClearFilters) {
     });
 }
 
+if (shopRetryLoad) {
+    shopRetryLoad.addEventListener('click', () => {
+        loadShopProducts({ forceRefresh: true });
+    });
+}
+
 if (shopSearchForm && shopSearchInput) {
     shopSearchForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -1067,16 +1150,32 @@ function getProductCategorySlug(product) {
     return String(raw).toLowerCase().trim().replace(/[\s_]+/g, '-');
 }
 
-async function loadShopProducts() {
+async function loadShopProducts(options = {}) {
     if (!shopGrid) return;
+
+    const isRetry = Boolean(options.forceRefresh);
+    if (isRetry) {
+        if (shopRetryInFlight) return;
+        shopRetryInFlight = true;
+        setShopRetryUi(true);
+        restoreShopSkeletonCards();
+    }
 
     setShopLoadingState(true);
     shopProductsReady = false;
+    hideShopLoadError();
+
+    if (isRetry) {
+        catalogProductsCache = null;
+        catalogProductsPromise = null;
+    }
 
     try {
         const products = await fetchCatalogProducts();
 
         shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
+        shopLoadErrorLogged = false;
+        resetShopEmptyCopy();
 
         if (products.length === 0) {
             console.warn('AFIFI: no products returned from API.');
@@ -1107,6 +1206,9 @@ async function loadShopProducts() {
         if (shopEmpty) {
             shopGrid.appendChild(shopEmpty);
         }
+        if (shopError) {
+            shopGrid.appendChild(shopError);
+        }
 
         shopCards = Array.from(shopGrid.querySelectorAll('.product-card'));
         shopGrid.querySelectorAll('.wishlist').forEach(wireWishlistButton);
@@ -1117,20 +1219,17 @@ async function loadShopProducts() {
         readShopSearchFromUrl();
         setActiveFilter('all');
     } catch (error) {
-        console.warn('AFIFI: could not load shop products from API.', error);
-        shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
-        shopProductsReady = true;
-        setShopLoadingState(false);
-        shopCards = [];
-        if (shopEmpty) {
-            const title = shopEmpty.querySelector('.shop-empty-title');
-            const text = shopEmpty.querySelector('.shop-empty-text');
-            if (title) title.textContent = 'Unable to load products.';
-            if (text) text.textContent = 'Please refresh the page and try again.';
-            shopEmpty.hidden = false;
-            shopGrid.appendChild(shopEmpty);
+        if (!shopLoadErrorLogged) {
+            console.warn('AFIFI: could not load shop products from API.', error);
+            shopLoadErrorLogged = true;
         }
-        if (shopCount) shopCount.textContent = '0 products';
+        shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
+        showShopLoadError();
+    } finally {
+        if (isRetry) {
+            setShopRetryUi(false);
+            shopRetryInFlight = false;
+        }
     }
 }
 
