@@ -3548,6 +3548,153 @@ body.auth-modal-open {
     color: #c0392b;
 }
 
+/* ========== MOBILE ACCOUNT SHEET ========== */
+body.account-sheet-open {
+    overflow: hidden;
+}
+
+.account-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 320;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.36s ease, visibility 0.36s ease;
+}
+
+.account-sheet-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.account-sheet-overlay[hidden] {
+    display: none !important;
+}
+
+.account-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(13, 13, 13, 0.62);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+}
+
+.account-sheet {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    background: #fff;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.22);
+    padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.account-sheet-overlay.is-open .account-sheet {
+    transform: translateY(0);
+}
+
+.account-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.account-sheet-title {
+    margin: 0;
+    font-family: var(--font-heading), sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--black);
+}
+
+.account-sheet-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: #f5f3ee;
+    border-radius: 999px;
+    font-size: 22px;
+    line-height: 1;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.22s ease, background 0.22s ease;
+}
+
+.account-sheet-close:hover,
+.account-sheet-close:focus-visible {
+    color: var(--black);
+    background: #ece8e1;
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.account-sheet-actions {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0 0;
+}
+
+.account-sheet-item {
+    display: block;
+    width: 100%;
+    padding: 16px 20px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 15px;
+    color: var(--black);
+    background: none;
+    border: none;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+    box-sizing: border-box;
+}
+
+.account-sheet-item:hover,
+.account-sheet-item:focus-visible {
+    background: #f5f3ee;
+    color: var(--gold);
+    outline: none;
+}
+
+.account-sheet-item:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: -2px;
+}
+
+.account-sheet-logout {
+    margin-top: 4px;
+    border-top: 1px solid var(--line);
+    color: #c0392b;
+}
+
+.account-sheet-logout:hover,
+.account-sheet-logout:focus-visible {
+    background: #fdecea;
+    color: #c0392b;
+}
+
+@media (max-width: 768px) {
+    .account-menu {
+        display: none !important;
+    }
+}
+
 .icons a.logged-in::after {
     content: '';
     position: absolute;

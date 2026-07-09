@@ -771,6 +771,16 @@ if (hamburger && navMenu) {
     });
 }
 
+function closeMobileNavMenu() {
+    const navMenuEl = document.getElementById('navMenu');
+    const hamburgerEl = document.getElementById('hamburger');
+    if (navMenuEl) navMenuEl.classList.remove('open');
+    if (hamburgerEl) {
+        hamburgerEl.classList.remove('active');
+        hamburgerEl.setAttribute('aria-expanded', 'false');
+    }
+}
+
 function getShopPageBase() {
     if (window.location.protocol === 'file:') return 'shop.html';
     return /\.html$/i.test(window.location.pathname) ? 'shop.html' : 'shop';
@@ -797,7 +807,8 @@ function getScrollbarWidth() {
 function isScrollLocked() {
     return document.body.classList.contains('auth-modal-open')
         || document.body.classList.contains('search-open')
-        || document.body.classList.contains('drawer-open');
+        || document.body.classList.contains('drawer-open')
+        || document.body.classList.contains('account-sheet-open');
 }
 
 function updateScrollLockCompensation() {
@@ -2290,8 +2301,9 @@ function updateAuthUI() {
         link.classList.toggle('logged-in', loggedIn);
         link.setAttribute('aria-label', loggedIn ? `Account${user && user.name ? ': ' + user.name : ''}` : 'Account');
     });
-    if (!loggedIn && typeof accountMenu !== 'undefined') {
+    if (!loggedIn) {
         accountMenu.close();
+        if (typeof mobileAccountSheet !== 'undefined') mobileAccountSheet.close();
     }
 }
 
@@ -2369,6 +2381,73 @@ function createAccountMenu() {
 
 const accountMenu = createAccountMenu();
 
+const MOBILE_NAV_MEDIA = window.matchMedia('(max-width: 768px)');
+
+function isMobileNav() {
+    return MOBILE_NAV_MEDIA.matches;
+}
+
+function createMobileAccountSheet() {
+    const overlay = document.createElement('div');
+    overlay.className = 'account-sheet-overlay';
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = `
+        <button type="button" class="account-sheet-backdrop" aria-label="Close account menu"></button>
+        <div class="account-sheet" role="dialog" aria-modal="true" aria-labelledby="accountSheetTitle">
+            <div class="account-sheet-header">
+                <h2 id="accountSheetTitle" class="account-sheet-title">MY ACCOUNT</h2>
+                <button type="button" class="account-sheet-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="account-sheet-actions">
+                <a href="#" class="account-sheet-item" data-action="profile">My Profile</a>
+                <a href="#" class="account-sheet-item" data-action="orders">My Orders</a>
+                <button type="button" class="account-sheet-item account-sheet-logout" data-action="logout">Logout</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const backdrop = overlay.querySelector('.account-sheet-backdrop');
+    const closeBtn = overlay.querySelector('.account-sheet-close');
+    const BODY_CLASS = 'account-sheet-open';
+
+    function closeSheet() {
+        concealOverlay(overlay, BODY_CLASS);
+    }
+
+    function openSheet() {
+        accountMenu.close();
+        revealOverlay(overlay, BODY_CLASS);
+        requestAnimationFrame(() => closeBtn.focus());
+    }
+
+    overlay.querySelector('.account-sheet-actions').addEventListener('click', (e) => {
+        const item = e.target.closest('[data-action]');
+        if (!item) return;
+        e.preventDefault();
+        if (item.dataset.action === 'logout') {
+            handleLogout();
+        }
+        closeSheet();
+    });
+
+    backdrop.addEventListener('click', closeSheet);
+    closeBtn.addEventListener('click', closeSheet);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeSheet();
+    });
+
+    window.addEventListener('resize', () => {
+        if (!isMobileNav() && overlay.classList.contains('is-open')) closeSheet();
+    });
+
+    return { open: openSheet, close: closeSheet };
+}
+
+const mobileAccountSheet = createMobileAccountSheet();
+
 function wireProfileIcon(iconsWrap) {
     const profileImg = iconsWrap.querySelector('img[alt="Profile"]');
     const profileLink = profileImg ? profileImg.closest('a') : null;
@@ -2379,8 +2458,14 @@ function wireProfileIcon(iconsWrap) {
         e.preventDefault();
         e.stopPropagation();
         if (isLoggedIn()) {
-            accountMenu.toggle(profileLink);
+            if (isMobileNav()) {
+                closeMobileNavMenu();
+                mobileAccountSheet.open();
+            } else {
+                accountMenu.toggle(profileLink);
+            }
         } else {
+            if (isMobileNav()) closeMobileNavMenu();
             openAuthModal('login');
         }
     });
@@ -2565,6 +2650,7 @@ function createAuthModal() {
 const authModal = createAuthModal();
 
 function openAuthModal(tabName) {
+    mobileAccountSheet.close();
     authModal.open(tabName);
 }
 
