@@ -1,0 +1,7 @@
+Self-hosted fonts for the AFIFI storefront (latin subsets).
+
+- Bebas Neue — Copyright (c) Dharma Type (OFL 1.1)
+- Montserrat — Copyright (c) Julieta Ulanovsky (OFL 1.1)
+- Poppins — Copyright (c) Indian Type Foundry (OFL 1.1)
+
+Full license: https://openfontlicense.org

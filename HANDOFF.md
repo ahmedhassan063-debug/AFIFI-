@@ -61,7 +61,7 @@ API base URL (local): `http://127.0.0.1:8000/api`
 
 ```bash
 npm install && npm run build   # Laravel/Vite assets only
-php artisan test               # 35 tests (see backend README)
+php artisan test               # 71 tests (see backend README)
 ```
 
 **API docs**
@@ -96,23 +96,46 @@ Full backend reference: `E:\AFIFI Back-End\afifi-backend\README.md`
 
 Both `brand.js` and `admin.js` use the same logic:
 
-1. `window.AFIFI_API_BASE_URL` if set (production override)
+1. `window.AFIFI_API_BASE_URL` if set in HTML **before** the script loads (required for split/static deployments)
 2. `http://127.0.0.1:8000/api` when hostname is `localhost`, `127.0.0.1`, or `file:`
-3. Otherwise `{page-origin}/api` (same-origin deployment)
+3. Otherwise `{page-origin}/api` (same-origin deployment only)
 
-**Production override example** (set before loading scripts):
+**Production / GitHub Pages override**
+
+Static hosts (e.g. `*.github.io`) have no Laravel API at `{origin}/api`. Set the real API URL on **every public HTML page** immediately before `brand.js`:
 
 ```html
+<!--
+  API base URL (production / split deployment only):
+  Uncomment and set before brand.js when the Laravel API is NOT on the same origin as this site.
+  Required for static hosts such as GitHub Pages. Local dev (localhost, 127.0.0.1, file://)
+  automatically uses http://127.0.0.1:8000/api — do not set this override locally.
+  Example:
+  <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
+-->
 <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
-<script src="brand.js?v=1.6"></script>
+<script src="brand.js?v=1.31"></script>
 ```
+
+- Replace `https://api.yourdomain.com/api` with your deployed Laravel API base (must include `/api`).
+- Do **not** hardcode a placeholder URL in the repo — each deployer sets their own.
+- Configure CORS on Laravel when the storefront origin differs from the API origin.
+- The same pattern applies to `admin.html` with `admin.js` if admin is hosted separately.
+
+**Unreachable API errors**
+
+When the browser cannot reach the API (network failure, static-host 404 HTML, or wrong base URL), the auth modal and other API surfaces show:
+
+`Unable to connect to the server. Please try again later.`
+
+Validation and permission errors from a live API still show their specific messages.
 
 **Cache busting (current versions)**
 
 | Asset | Storefront | Admin |
 |-------|------------|-------|
-| CSS | `brand.css?v=1.7` | `admin.css?v=1.12` |
-| JS | `brand.js?v=1.6` | `admin.js?v=1.12` |
+| CSS | `brand.css?v=1.46` | `admin.css?v=1.12` |
+| JS | `brand.js?v=1.36` | `admin.js?v=1.12` |
 
 Bump `?v=` on any HTML reference after changing CSS/JS.
 
@@ -255,6 +278,8 @@ Role permissions are defined in `database/seeders/RolesAndPermissionsSeeder.php`
 | `contact.view` | Contact messages list/detail |
 | `contact.manage` | Message status update, delete |
 | `payments.view` | Payment-related admin routes (fulfillment) |
+| `payments.update` | Mark payments paid / update payment status |
+| `payments.refund` | Create and process refunds |
 | `campaigns.manage` | Campaign admin API (not in dashboard UI yet) |
 
 `users.create` / `users.update` / `users.delete` exist in the seeder but customer mutation UI is not implemented in the admin dashboard.
@@ -263,42 +288,391 @@ Role permissions are defined in `database/seeders/RolesAndPermissionsSeeder.php`
 
 ## 9. Production deployment checklist
 
-### Backend
+This is the final go-live checklist for AFIFI. **Documentation only** — follow these steps on your server/hosting; no code changes are required for deployment itself.
 
-- [ ] Set `APP_ENV=production`, `APP_DEBUG=false`, strong `APP_KEY`
-- [ ] Use MySQL or PostgreSQL (not SQLite)
-- [ ] Set `APP_URL` to the public API URL (HTTPS)
-- [ ] Set `ADMIN_PASSWORD` (and other `ADMIN_*`) before seeding; avoid default password
+### 9.1 Pre-deploy requirements
+
+| Component | Requirement |
+|-----------|-------------|
+| **Backend** | PHP 8.3+, Composer 2.x, MySQL 8+ or PostgreSQL 14+ (SQLite is dev/test only) |
+| **Web server** | nginx or Apache with PHP-FPM; HTTPS termination |
+| **Storefront** | Static host (GitHub Pages, Netlify, S3+CloudFront, nginx static, etc.) |
+| **Admin** | Same static host as storefront, or separate origin with `AFIFI_API_BASE_URL` set |
+| **DNS** | API subdomain (e.g. `api.example.com`), shop domain (e.g. `shop.example.com` or `www.example.com`) |
+
+### 9.2 Backend deployment steps
+
+**1. Deploy code**
+
+```bash
+cd /var/www/afifi-backend   # your deploy path
+git pull origin main          # or upload release artifact
+```
+
+**2. Install production dependencies**
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+**3. Environment file (first deploy)**
+
+```bash
+cp .env.example .env
+php artisan key:generate      # first deploy only; skip if APP_KEY already set
+```
+
+Edit `.env` with production values (see §9.4 and §4).
+
+**4. Database**
+
+```bash
+# First production deploy (full reference data + demo catalog)
+php artisan migrate --force
+php artisan db:seed --force
+
+# OR upgrade deploy (schema only)
+php artisan migrate --force
+
+# Re-sync roles/permissions after code updates that add new permissions
+php artisan db:seed --class=RolesAndPermissionsSeeder --force
+php artisan permission:cache-reset
+```
+
+**5. Storage**
+
+```bash
+php artisan storage:link
+```
+
+Ensure `storage/` and `bootstrap/cache/` are writable by the web server user.
+
+**6. Optimize Laravel (run after every backend deploy)**
+
+```bash
+php artisan config:clear      # required before caching when config files changed
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+**7. Process managers**
+
+```bash
+# If QUEUE_CONNECTION=database (default in .env.example)
+php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+# Run under systemd/supervisor in production
+
+# Reload PHP after deploy
+sudo systemctl reload php8.3-fpm   # adjust version/service name
+```
+
+**8. Health check**
+
+```bash
+curl -f https://api.yourdomain.com/up
+```
+
+### 9.3 Frontend deployment steps
+
+**1. Prepare API URL**
+
+For **split hosting** (storefront on GitHub Pages / CDN, API on separate subdomain), set the real API base on **every** HTML page that loads `brand.js`, immediately before the script tag:
+
+```html
+<script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
+<script src="brand.js?v=1.36"></script>
+```
+
+Pages to update:
+
+- `index.html`, `shop.html`, `product.html`, `about.html`, `contact.html`, `support.html`
+- `profile.html`, `orders.html`, `order.html` (if used)
+
+For **admin** on a separate origin, add the same line before `admin.js` in `admin.html`:
+
+```html
+<script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
+<script src="admin.js?v=1.12"></script>
+```
+
+For **same-origin** deployment (`example.com` serves static files and reverse-proxies `/api` to Laravel), no override is needed — `brand.js` / `admin.js` resolve `{origin}/api` automatically.
+
+**2. Deploy static assets**
+
+Upload the full storefront folder:
+
+```
+index.html, shop.html, product.html, about.html, contact.html, support.html
+profile.html, orders.html, order.html
+brand.css, brand.js
+admin.html, admin.css, admin.js
+images/
+favicon.ico
+```
+
+**3. GitHub Pages**
+
+- Enable Pages on the repo (branch `main` / root, or `gh-pages` branch).
+- Optional custom domain + HTTPS in repo Settings → Pages.
+- Set `window.AFIFI_API_BASE_URL` before deploy (step 1) — GitHub Pages cannot run PHP/Laravel.
+- Do **not** commit production API URLs if they differ per environment; set at deploy time via CI/CD env substitution or a release script.
+
+**4. Post-upload**
+
+- Confirm HTTPS on the storefront URL.
+- Bump `?v=` on CSS/JS references after any asset change.
+- Verify `admin.html` stays `noindex` (already set).
+
+### 9.4 Required `.env` variables (production)
+
+#### Core (required)
+
+| Variable | Production value |
+|----------|------------------|
+| `APP_NAME` | `AFIFI` |
+| `APP_ENV` | `production` |
+| `APP_KEY` | Base64 key from `php artisan key:generate` |
+| `APP_DEBUG` | **`false`** |
+| `APP_URL` | `https://api.yourdomain.com` (must match public API URL for storage links) |
+
+#### Database (required)
+
+| Variable | Example |
+|----------|---------|
+| `DB_CONNECTION` | `mysql` or `pgsql` |
+| `DB_HOST` | DB server hostname |
+| `DB_PORT` | `3306` / `5432` |
+| `DB_DATABASE` | `afifi_production` |
+| `DB_USERNAME` | dedicated DB user |
+| `DB_PASSWORD` | strong password |
+
+#### Session, cache, queue
+
+| Variable | Production recommendation |
+|----------|---------------------------|
+| `SESSION_DRIVER` | `database` or `redis` |
+| `CACHE_STORE` | `redis` or `database` (not `file` on multi-node) |
+| `QUEUE_CONNECTION` | `database` or `redis` (not `sync` if using workers) |
+
+#### Storage & media
+
+| Variable | Notes |
+|----------|-------|
+| `FILESYSTEM_DISK` | `local` with persistent disk, or `s3` with AWS vars below |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET` | Required for S3 media |
+| `MEDIA_MAX_SIZE_BYTES` | Optional; default 10 MB (`config/media.php`) |
+
+#### Admin seed overrides (set before first seed)
+
+| Variable | Notes |
+|----------|-------|
+| `ADMIN_EMAIL` | Production admin login email |
+| `ADMIN_PASSWORD` | **Strong password** — never use `ChangeMe123!` |
+| `ADMIN_NAME` | Display name |
+| `ADMIN_PHONE` | Unique phone key for `AdminUserSeeder` |
+
+#### CORS / Sanctum (split frontend + API)
+
+| Variable | Notes |
+|----------|-------|
+| `SANCTUM_STATEFUL_DOMAINS` | Comma-separated storefront/admin origins if using cookie-based SPA auth later (e.g. `shop.example.com,admin.example.com`) |
+| `SESSION_DOMAIN` | Leading-dot cookie domain if using stateful Sanctum across subdomains (e.g. `.example.com`) |
+
+**Bearer-token auth (current storefront/admin):** Tokens are sent via `Authorization: Bearer <token>` from `localStorage`. CORS is the primary cross-origin requirement; publish and tighten `config/cors.php` (see §9.5).
+
+#### Mail (optional but recommended)
+
+| Variable | Notes |
+|----------|-------|
+| `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Transactional mail |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | From header |
+
+### 9.5 CORS & Sanctum (split hosting)
+
+The storefront and admin use **Sanctum API tokens** in `localStorage` (`afifiAuthToken`), not cookie sessions. For split deployment:
+
+**1. Publish CORS config (recommended for production)**
+
+```bash
+php artisan config:publish cors
+```
+
+Edit `config/cors.php`:
+
+```php
+'paths' => ['api/*', 'sanctum/csrf-cookie'],
+'allowed_methods' => ['*'],
+'allowed_origins' => [
+    'https://shop.yourdomain.com',
+    'https://www.yourdomain.com',
+    'https://youruser.github.io',   // if using GitHub Pages
+],
+'allowed_headers' => ['*'],
+'supports_credentials' => false,     // bearer tokens; keep false
+```
+
+Then `php artisan config:clear && php artisan config:cache`.
+
+**Default:** Laravel ships with `allowed_origins => ['*']` — acceptable for bearer-token APIs, but restrict origins in production when possible.
+
+**2. Sanctum stateful domains**
+
+Only required if you later enable cookie/CSRF SPA mode (`EnsureFrontendRequestsAreStateful`). For current token auth, optional:
+
+```env
+SANCTUM_STATEFUL_DOMAINS=shop.yourdomain.com,www.yourdomain.com,localhost,127.0.0.1
+```
+
+**3. Reverse proxy (same domain)**
+
+If nginx serves `https://example.com` (static) and proxies `https://example.com/api` → Laravel:
+
+- Set `APP_URL=https://example.com`
+- Trust proxies in Laravel (`TrustProxies` middleware / `APP_URL`)
+- No CORS needed (same origin)
+- No `AFIFI_API_BASE_URL` override on frontend
+
+### 9.6 Admin login setup
+
+1. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` **before** first seed.
+2. Run `php artisan db:seed --class=AdminUserSeeder --force` (or full `db:seed`).
+3. Open `admin.html` on the storefront host.
+4. Log in via the storefront auth modal (`index.html`) **or** API `POST /api/auth/login`.
+5. Admin gate checks `GET /api/auth/me` then `GET /api/admin/dashboard` (`reports.view`).
+6. Default role: `super_admin`. Assign other roles via database or future user-management UI.
+
+**Re-seed permissions after backend updates:**
+
+```bash
+php artisan db:seed --class=RolesAndPermissionsSeeder --force
+php artisan permission:cache-reset
+```
+
+### 9.7 Media & storage notes
+
+- Product/media URLs: `{APP_URL}/storage/{path}` (requires `php artisan storage:link`).
+- Media admin API registers **metadata only** — upload files to `storage/app/public/` (or S3) separately; paths must match registered metadata.
+- Allowed MIME types and max size: `config/media.php` (images + mp4/webm; 10 MB default).
+- Soft-delete removes DB record and deletes the physical file when present on `public`/`local` disk.
+- After deploy, verify: `GET /api/catalog/products` returns image URLs that load in the browser.
+
+### 9.8 Security checklist
+
+- [ ] `APP_DEBUG=false`, `APP_ENV=production`
+- [ ] Unique `APP_KEY`; never commit `.env`
+- [ ] Strong `ADMIN_PASSWORD`; change from default before seed
+- [ ] HTTPS on API and storefront
+- [ ] CORS `allowed_origins` restricted to known storefront/admin domains
+- [ ] Database user has least privilege (not root)
+- [ ] `storage/` and `.env` not web-accessible
+- [ ] Rate limits active: `auth-public` 10/min, `auth-sensitive` 5/min (production)
+- [ ] `admin.html` not linked in public nav; consider IP allowlist or HTTP auth on admin path
+- [ ] Run `php artisan test` on CI before deploy (71 tests)
+- [ ] Backups: automated DB dumps + `storage/app/public` (or S3 versioning)
+
+### 9.9 Post-deploy smoke tests
+
+**API (curl or Postman)**
+
+```bash
+curl -s https://api.yourdomain.com/up
+curl -s https://api.yourdomain.com/api/settings/public
+curl -s https://api.yourdomain.com/api/catalog/products
+curl -s https://api.yourdomain.com/api/campaigns/active
+curl -s https://api.yourdomain.com/api/cms/homepage
+```
+
+**Auth**
+
+```bash
+curl -s -X POST https://api.yourdomain.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"YOUR_ADMIN_EMAIL","password":"YOUR_ADMIN_PASSWORD"}'
+```
+
+**Browser**
+
+- [ ] Storefront homepage loads products and images
+- [ ] Shop filters and product detail work
+- [ ] Register / login stores token; cart syncs when logged in
+- [ ] `admin.html` shows dashboard for `super_admin`
+- [ ] One product list, one order view, one settings read in admin
+- [ ] Media URL opens in new tab from admin Media section
+- [ ] Split-host: no CORS errors in browser DevTools Network tab
+
+### 9.10 Rollback plan
+
+**Application rollback (code)**
+
+1. Redeploy previous release tag/commit.
+2. Clear caches:
+
+```bash
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+php artisan permission:cache-reset
+```
+
+3. Re-optimize if staying on rolled-back release:
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+4. Reload PHP-FPM / restart queue workers.
+
+**Database rollback**
+
+- If the failed deploy ran migrations: restore from pre-deploy DB backup (preferred), or `php artisan migrate:rollback --force` only if the migration is reversible and no destructive data changes occurred.
+- Do **not** rollback permission seeders on live data without a backup — `syncPermissions` may change role assignments.
+
+**Frontend rollback**
+
+- Revert static files to previous release (HTML/CSS/JS).
+- Restore previous `AFIFI_API_BASE_URL` if it changed.
+- Bump or restore `?v=` cache-bust strings to match rolled-back assets.
+
+**Storage rollback**
+
+- Media file deletes are not automatic on app rollback. Restore `storage/app/public` from backup if files were removed during the failed release.
+
+**Incident checklist**
+
+| Step | Action |
+|------|--------|
+| 1 | Put site in maintenance (`php artisan down` on API if needed) |
+| 2 | Restore last known-good backend + frontend artifacts |
+| 3 | Restore database backup if schema/data changed |
+| 4 | `config:clear`, `route:clear`, `view:clear`, `permission:cache-reset` |
+| 5 | Smoke test §9.9 |
+| 6 | `php artisan up` |
+
+### 9.11 Quick checklist summary
+
+**Backend**
+
+- [ ] `composer install --no-dev --optimize-autoloader`
+- [ ] `.env` production values (`APP_DEBUG=false`, MySQL/PostgreSQL, `APP_URL`)
+- [ ] `php artisan key:generate` (first deploy)
 - [ ] `php artisan migrate --force`
+- [ ] `php artisan db:seed --class=RolesAndPermissionsSeeder --force`
+- [ ] `php artisan permission:cache-reset`
 - [ ] `php artisan storage:link`
-- [ ] `php artisan config:cache`, `route:cache`, `view:cache`
-- [ ] Configure `FILESYSTEM_DISK` (S3 or persistent local storage)
-- [ ] Run queue worker if `QUEUE_CONNECTION` is not `sync`
-- [ ] HTTPS termination, CORS if API and frontend are on different origins
-- [ ] Restrict `admin.html` if desired (HTTP auth, IP allowlist, or private network)
+- [ ] `php artisan config:clear && config:cache && route:cache && view:cache`
+- [ ] Queue worker running (if not `sync`)
+- [ ] CORS origins configured
+- [ ] HTTPS + `/up` health check
 
-### Frontend
+**Frontend**
 
-- [ ] Deploy all HTML, `brand.css`, `brand.js`, `admin.css`, `admin.js`, `images/`
-- [ ] Set `window.AFIFI_API_BASE_URL` if API is on a different origin
-- [ ] Ensure HTTPS for production
-- [ ] Verify `admin.html` is not indexed (`noindex` already set)
-- [ ] Bump cache-bust query strings after asset changes
-
-### Same-origin vs split deployment
-
-| Model | Frontend API config |
-|-------|---------------------|
-| Same domain (`example.com` + `example.com/api`) | No override needed |
-| Split (`shop.example.com` + `api.example.com`) | Set `AFIFI_API_BASE_URL`; configure CORS on Laravel |
-
-### Post-deploy smoke test
-
-- [ ] `GET /api/settings/public` returns settings
-- [ ] `GET /api/catalog/products` returns products with images (`/storage/...`)
-- [ ] Storefront login/register works
-- [ ] `admin.html` loads dashboard for `super_admin`
-- [ ] One product CRUD path, one order view, one settings read
+- [ ] Deploy all HTML, CSS, JS, `images/`
+- [ ] Set `window.AFIFI_API_BASE_URL` on split/static hosts
+- [ ] HTTPS enabled
+- [ ] Cache-bust `?v=` bumped after asset changes
 
 ---
 
@@ -341,7 +715,7 @@ Role permissions are defined in `database/seeders/RolesAndPermissionsSeeder.php`
 
 ### Backend
 
-- [ ] `php artisan test` passes
+- [ ] `php artisan test` passes (71 tests)
 - [ ] GitHub Actions test workflow green on push/PR
 
 ---
@@ -364,7 +738,7 @@ Do **not** treat these as bugs without an explicit product decision to implement
 | **Payment status in admin** | Read-only; derived from payments/refunds. |
 | **Image upload in product form** | Product images are read-only in edit modal; upload not available. |
 | **Archive for contact messages** | Delete is hard delete; no archive status. |
-| **Physical file on media delete** | Soft-delete DB record only; file remains on disk. |
+| **Physical file on media delete** | Soft-delete removes DB record and deletes the file from `public`/`local` disk when present. Orphan/missing files do not crash delete. |
 
 ---
 
@@ -400,4 +774,4 @@ For backend internals (services, policies, tests), use `afifi-backend/README.md`
 
 ---
 
-*Document version: handoff v1 — matches admin `v=1.12`, storefront `brand v=1.6/1.7`.*
+*Document version: handoff v2 — production deployment checklist. Storefront `brand v=1.46/1.36`, admin `v=1.12`.*

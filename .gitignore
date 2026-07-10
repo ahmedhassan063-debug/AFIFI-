@@ -1,0 +1,5 @@
+node_modules/
+lighthouse-*.json
+*.log
+.DS_Store
+Thumbs.db
