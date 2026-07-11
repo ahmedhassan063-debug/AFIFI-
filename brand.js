@@ -3131,12 +3131,24 @@ function normalizeApiCartItem(item, lookupMap) {
     };
 }
 
+let apiCartRefreshPromise = null;
+
 async function refreshApiCartFromServer() {
-    const response = await window.afifiApi.apiRequest('/cart');
-    const cart = response && response.data;
-    const items = (cart && cart.items) || [];
-    const lookupMap = await getProductLookupMap();
-    apiCartItems = items.map(item => normalizeApiCartItem(item, lookupMap));
+    if (apiCartRefreshPromise) return apiCartRefreshPromise;
+
+    apiCartRefreshPromise = (async () => {
+        const response = await window.afifiApi.apiRequest('/cart');
+        const cart = response && response.data;
+        const items = (cart && cart.items) || [];
+        const lookupMap = await getProductLookupMap();
+        apiCartItems = items.map(item => normalizeApiCartItem(item, lookupMap));
+    })();
+
+    try {
+        await apiCartRefreshPromise;
+    } finally {
+        apiCartRefreshPromise = null;
+    }
 }
 
 async function loadApiCart(options = {}) {
@@ -3769,6 +3781,8 @@ function renderCart() {
 
     const hasUnavailableItems = activeItems.some(item => getCartItemDisplayState(item).unavailable);
     const isEmpty = activeItems.length === 0;
+    const whatsappFallback = document.querySelector('.cart-whatsapp-fallback');
+
     if (isEmpty || hasUnavailableItems) {
         checkoutLink.textContent = hasUnavailableItems ? 'Resolve stock issues to checkout' : 'Cart is empty';
         checkoutLink.href = '#';
@@ -3776,13 +3790,20 @@ function renderCart() {
         checkoutLink.classList.add('is-disabled');
         checkoutLink.removeAttribute('target');
         checkoutLink.removeAttribute('rel');
+        if (whatsappFallback) whatsappFallback.hidden = true;
     } else {
-        checkoutLink.textContent = 'SEND ORDER ON WHATSAPP';
-        checkoutLink.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildWhatsAppMessage())}`;
+        checkoutLink.textContent = 'PROCEED TO CHECKOUT';
+        checkoutLink.href = 'checkout.html';
         checkoutLink.setAttribute('aria-disabled', 'false');
         checkoutLink.classList.remove('is-disabled');
-        checkoutLink.setAttribute('target', '_blank');
-        checkoutLink.setAttribute('rel', 'noopener');
+        checkoutLink.removeAttribute('target');
+        checkoutLink.removeAttribute('rel');
+        if (whatsappFallback) {
+            whatsappFallback.hidden = false;
+            whatsappFallback.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildWhatsAppMessage())}`;
+            whatsappFallback.setAttribute('target', '_blank');
+            whatsappFallback.setAttribute('rel', 'noopener');
+        }
     }
 
     updateCartBadge();
@@ -3809,7 +3830,8 @@ function createCartPanel() {
         <div class="cart-items"></div>
         <div class="cart-footer">
             <div class="cart-total"><strong>Total</strong><strong>0 EGP</strong></div>
-            <a class="cart-checkout" href="#" target="_blank">SEND ORDER ON WHATSAPP</a>
+            <a class="cart-checkout" href="checkout.html">PROCEED TO CHECKOUT</a>
+            <a class="cart-whatsapp-fallback" href="#" hidden>Order via WhatsApp instead</a>
         </div>
     `;
     document.body.appendChild(panel);
@@ -3821,6 +3843,11 @@ function createCartPanel() {
         const activeItems = getActiveCartItems();
         if (activeItems.length === 0 || activeItems.some(item => getCartItemDisplayState(item).unavailable)) {
             event.preventDefault();
+            return;
+        }
+        if (!isLoggedIn()) {
+            event.preventDefault();
+            openAuthModal('login');
         }
     });
 
@@ -4936,6 +4963,616 @@ async function initOrderDetailPage() {
     await loadOrder();
 }
 
+// ========== CHECKOUT PAGE ==========
+// Governorate → shipping_zone_code mapping from backend seeders
+// (GovernorateSeeder + ShippingZoneSeeder). No public API exists yet.
+const CHECKOUT_GOVERNORATES = [
+    { name: 'Cairo', zone: 'cairo_giza' },
+    { name: 'Giza', zone: 'cairo_giza' },
+    { name: 'Alexandria', zone: 'alexandria_coast' },
+    { name: 'Beheira', zone: 'alexandria_coast' },
+    { name: 'Matrouh', zone: 'alexandria_coast' },
+    { name: 'Qalyubia', zone: 'delta' },
+    { name: 'Dakahlia', zone: 'delta' },
+    { name: 'Sharqia', zone: 'delta' },
+    { name: 'Gharbia', zone: 'delta' },
+    { name: 'Menofia', zone: 'delta' },
+    { name: 'Kafr El Sheikh', zone: 'delta' },
+    { name: 'Damietta', zone: 'delta' },
+    { name: 'Fayoum', zone: 'upper_egypt' },
+    { name: 'Beni Suef', zone: 'upper_egypt' },
+    { name: 'Minya', zone: 'upper_egypt' },
+    { name: 'Assiut', zone: 'upper_egypt' },
+    { name: 'Sohag', zone: 'upper_egypt' },
+    { name: 'Qena', zone: 'upper_egypt' },
+    { name: 'Luxor', zone: 'upper_egypt' },
+    { name: 'Aswan', zone: 'upper_egypt' }
+];
+
+const PAYMENT_STATUS_LABELS = {
+    unpaid: 'Unpaid',
+    paid: 'Paid',
+    partially_paid: 'Partially Paid',
+    partially_refunded: 'Partially Refunded',
+    refunded: 'Refunded'
+};
+
+const PAYMENT_METHOD_LABELS = {
+    instapay: 'InstaPay',
+    vodafone_cash: 'Vodafone Cash'
+};
+
+function parseManualPaymentMethods(settings) {
+    const methods = [];
+    const source = settings || window.afifiSettings || {};
+
+    if (source['payment.instapay.enabled'] && source['payment.instapay.account_identifier']) {
+        methods.push({
+            id: 'instapay',
+            label: PAYMENT_METHOD_LABELS.instapay,
+            accountName: source['payment.instapay.account_name'] || '',
+            accountIdentifier: source['payment.instapay.account_identifier'],
+            instructions: source['payment.instapay.instructions'] || ''
+        });
+    }
+
+    if (source['payment.vodafone_cash.enabled'] && source['payment.vodafone_cash.phone']) {
+        methods.push({
+            id: 'vodafone_cash',
+            label: PAYMENT_METHOD_LABELS.vodafone_cash,
+            phone: source['payment.vodafone_cash.phone'],
+            accountName: source['payment.vodafone_cash.account_name'] || '',
+            instructions: source['payment.vodafone_cash.instructions'] || ''
+        });
+    }
+
+    return methods;
+}
+
+function renderCheckoutPaymentInstructions(method) {
+    if (!method) return '';
+    const lines = [];
+    if (method.id === 'instapay') {
+        if (method.accountName) lines.push(`<p><strong>Account name:</strong> ${escapeHtml(method.accountName)}</p>`);
+        lines.push(`<p><strong>InstaPay ID:</strong> ${escapeHtml(method.accountIdentifier)}</p>`);
+    } else if (method.id === 'vodafone_cash') {
+        if (method.accountName) lines.push(`<p><strong>Account name:</strong> ${escapeHtml(method.accountName)}</p>`);
+        lines.push(`<p><strong>Wallet number:</strong> ${escapeHtml(method.phone)}</p>`);
+    }
+    if (method.instructions) {
+        lines.push(`<p>${escapeHtml(method.instructions)}</p>`);
+    }
+    return lines.join('');
+}
+
+function getCheckoutGovernorateZone(governorateName) {
+    const match = CHECKOUT_GOVERNORATES.find(item => item.name === governorateName);
+    return match ? match.zone : '';
+}
+
+function mapCheckoutApiErrors(errors) {
+    const mapped = {};
+    if (!errors || typeof errors !== 'object') return mapped;
+
+    Object.entries(errors).forEach(([key, value]) => {
+        const message = Array.isArray(value) ? value[0] : value;
+        if (!message) return;
+        if (key.startsWith('address.')) {
+            mapped[key.slice('address.'.length)] = message;
+        } else {
+            mapped[key] = message;
+        }
+    });
+    return mapped;
+}
+
+function showCheckoutFieldError(fieldId, message) {
+    const errorEl = document.getElementById(fieldId);
+    const inputId = fieldId.replace('checkoutError', 'checkout');
+    const inputEl = document.getElementById(inputId);
+    if (errorEl) {
+        errorEl.textContent = message || '';
+        errorEl.hidden = !message;
+    }
+    if (inputEl) {
+        inputEl.setAttribute('aria-invalid', message ? 'true' : 'false');
+    }
+}
+
+function clearCheckoutFieldErrors() {
+    document.querySelectorAll('.checkout-field-error').forEach(el => {
+        el.hidden = true;
+        el.textContent = '';
+    });
+    document.querySelectorAll('#checkoutForm .auth-input, #checkoutForm select, #checkoutReferenceInput').forEach(el => {
+        el.removeAttribute('aria-invalid');
+    });
+}
+
+function showCheckoutFormMessage(el, text, type) {
+    if (!el) return;
+    if (!text) {
+        el.hidden = true;
+        el.textContent = '';
+        el.classList.remove('error', 'success');
+        return;
+    }
+    el.hidden = false;
+    el.textContent = text;
+    el.classList.remove('error', 'success');
+    if (type) el.classList.add(type);
+}
+
+function renderCheckoutItemsList(items, currency) {
+    return items.map(item => {
+        const variant = escapeHtml([item.size, item.color].filter(Boolean).join(' / '));
+        const lineTotal = formatPrice(item.price * item.quantity, currency);
+        return `
+            <li class="checkout-item">
+                <div class="checkout-item-thumb">
+                    <img src="${item.image || PRODUCT_PLACEHOLDER_SRC}" alt="">
+                </div>
+                <div class="checkout-item-info">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    ${variant ? `<span class="checkout-item-variant">${variant}</span>` : ''}
+                    <span class="checkout-item-meta">Qty ${item.quantity} &middot; ${escapeHtml(formatPrice(item.price, currency))} each</span>
+                    <span class="checkout-item-total">${escapeHtml(lineTotal)}</span>
+                </div>
+            </li>
+        `;
+    }).join('');
+}
+
+function renderCheckoutConfirmationSummary(order) {
+    const currency = order.currency_code;
+    const summaryLines = [
+        ['Order Number', order.order_number || `#${order.id}`],
+        ['Status', ORDER_STATUS_LABELS[order.status] || order.status],
+        ['Payment Status', PAYMENT_STATUS_LABELS[order.payment_status] || order.payment_status],
+        ['Payment Method', PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method],
+        ['Subtotal', formatPrice(order.subtotal, currency)],
+        ['Shipping', formatPrice(order.shipping_fee, currency)],
+    ];
+    if (Number(order.discount_total) > 0) {
+        summaryLines.push(['Discount', formatPrice(order.discount_total, currency)]);
+    }
+    summaryLines.push(['Grand Total', formatPrice(order.grand_total, currency)]);
+
+    return `
+        <h3 class="checkout-section-title">ORDER SUMMARY</h3>
+        <dl class="checkout-confirm-details">
+            ${summaryLines.map(([label, value]) => `
+                <dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>
+            `).join('')}
+        </dl>
+    `;
+}
+
+function renderCheckoutConfirmationPaymentDetails(order, paymentMethods) {
+    const method = (paymentMethods || []).find(item => item.id === order.payment_method)
+        || { id: order.payment_method, label: PAYMENT_METHOD_LABELS[order.payment_method] || order.payment_method };
+    const instructions = renderCheckoutPaymentInstructions(method);
+    if (!instructions) return '';
+    return `
+        <h3 class="checkout-section-title">PAYMENT DETAILS</h3>
+        <div class="checkout-payment-instructions">${instructions}</div>
+    `;
+}
+
+async function initCheckoutPage() {
+    if (!guardAccountPage()) {
+        const loadingEl = document.getElementById('checkoutLoading');
+        if (loadingEl) loadingEl.hidden = true;
+        return;
+    }
+
+    const loadingEl = document.getElementById('checkoutLoading');
+    const errorEl = document.getElementById('checkoutError');
+    const errorTitle = document.getElementById('checkoutErrorTitle');
+    const errorText = document.getElementById('checkoutErrorText');
+    const retryBtn = document.getElementById('checkoutRetry');
+    const emptyEl = document.getElementById('checkoutEmpty');
+    const configErrorEl = document.getElementById('checkoutConfigError');
+    const formWrap = document.getElementById('checkoutFormWrap');
+    const confirmationEl = document.getElementById('checkoutConfirmation');
+    const form = document.getElementById('checkoutForm');
+    const formMessage = document.getElementById('checkoutFormMessage');
+    const submitBtn = document.getElementById('checkoutSubmit');
+    const itemsList = document.getElementById('checkoutItemsList');
+    const subtotalEl = document.getElementById('checkoutSubtotal');
+    const paymentMethodsEl = document.getElementById('checkoutPaymentMethods');
+    const paymentInstructionsEl = document.getElementById('checkoutPaymentInstructions');
+    const governorateSelect = document.getElementById('checkoutGovernorate');
+    const referenceForm = document.getElementById('checkoutReferenceForm');
+    const referenceInput = document.getElementById('checkoutReferenceInput');
+    const referenceSubmit = document.getElementById('checkoutReferenceSubmit');
+    const referenceMessage = document.getElementById('checkoutReferenceMessage');
+    const referenceError = document.getElementById('checkoutReferenceError');
+    const orderDetailLink = document.getElementById('checkoutOrderDetailLink');
+
+    let paymentMethods = [];
+    let checkoutSubmitInFlight = false;
+    let referenceSubmitInFlight = false;
+    let confirmedOrder = null;
+
+    function setCheckoutView(state) {
+        const states = {
+            loading: loadingEl,
+            error: errorEl,
+            empty: emptyEl,
+            config: configErrorEl,
+            form: formWrap,
+            confirm: confirmationEl
+        };
+        Object.entries(states).forEach(([key, el]) => {
+            if (el) el.hidden = state !== key;
+        });
+    }
+
+    function prefillAddressFields() {
+        const user = getStoredUser();
+        const fullNameInput = document.getElementById('checkoutFullName');
+        const phoneInput = document.getElementById('checkoutPhone');
+        if (fullNameInput && !fullNameInput.value && user && user.name) {
+            fullNameInput.value = user.name;
+        }
+        if (phoneInput && !phoneInput.value && user && user.phone) {
+            phoneInput.value = user.phone;
+        }
+    }
+
+    function populateGovernorateOptions() {
+        if (!governorateSelect || governorateSelect.options.length > 1) return;
+        CHECKOUT_GOVERNORATES.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.name;
+            option.textContent = item.name;
+            option.dataset.zone = item.zone;
+            governorateSelect.appendChild(option);
+        });
+    }
+
+    function renderPaymentMethodOptions(methods, selectedId) {
+        if (!paymentMethodsEl) return;
+        paymentMethodsEl.innerHTML = methods.map((method, index) => `
+            <label class="checkout-payment-option">
+                <input type="radio" name="payment_method" value="${escapeHtml(method.id)}"${selectedId ? (method.id === selectedId ? ' checked' : '') : (index === 0 ? ' checked' : '')}>
+                <span>${escapeHtml(method.label)}</span>
+            </label>
+        `).join('');
+
+        paymentMethodsEl.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', updateSelectedPaymentInstructions);
+        });
+        updateSelectedPaymentInstructions();
+    }
+
+    function getSelectedPaymentMethod() {
+        const selected = form && form.querySelector('input[name="payment_method"]:checked');
+        if (!selected) return null;
+        return paymentMethods.find(method => method.id === selected.value) || null;
+    }
+
+    function updateSelectedPaymentInstructions() {
+        const method = getSelectedPaymentMethod();
+        if (!paymentInstructionsEl) return;
+        const html = renderCheckoutPaymentInstructions(method);
+        if (html) {
+            paymentInstructionsEl.innerHTML = html;
+            paymentInstructionsEl.hidden = false;
+        } else {
+            paymentInstructionsEl.innerHTML = '';
+            paymentInstructionsEl.hidden = true;
+        }
+    }
+
+    function readCheckoutAddressFromForm() {
+        const formData = new FormData(form);
+        const governorateName = String(formData.get('governorate_name') || '').trim();
+        return {
+            full_name: String(formData.get('full_name') || '').trim(),
+            phone: String(formData.get('phone') || '').trim(),
+            governorate_name: governorateName,
+            shipping_zone_code: getCheckoutGovernorateZone(governorateName),
+            city: String(formData.get('city') || '').trim(),
+            street: String(formData.get('street') || '').trim(),
+            area: String(formData.get('area') || '').trim() || null,
+            building: String(formData.get('building') || '').trim() || null,
+            floor: String(formData.get('floor') || '').trim() || null,
+            postal_code: String(formData.get('postal_code') || '').trim() || null
+        };
+    }
+
+    function validateCheckoutAddressClient(address) {
+        const errors = {};
+        if (!address.full_name) errors.full_name = 'Full name is required.';
+        if (!address.phone) errors.phone = 'Phone is required.';
+        if (!address.governorate_name) errors.governorate_name = 'Governorate is required.';
+        if (!address.shipping_zone_code) errors.governorate_name = 'Please select a supported governorate.';
+        if (!address.city) errors.city = 'City is required.';
+        if (!address.street) errors.street = 'Street is required.';
+        return errors;
+    }
+
+    function applyCheckoutFieldErrors(errors) {
+        const fieldMap = {
+            full_name: 'checkoutErrorFullName',
+            phone: 'checkoutErrorPhone',
+            governorate_name: 'checkoutErrorGovernorate',
+            city: 'checkoutErrorCity',
+            street: 'checkoutErrorStreet',
+            payment_method: 'checkoutErrorPaymentMethod',
+            coupon_code: 'checkoutErrorCoupon'
+        };
+        Object.entries(fieldMap).forEach(([field, errorId]) => {
+            showCheckoutFieldError(errorId, errors[field] || '');
+        });
+    }
+
+    function showConfirmationForOrder(order) {
+        confirmedOrder = order;
+        const confirmTitle = document.getElementById('checkoutConfirmTitle');
+        const confirmLead = document.getElementById('checkoutConfirmLead');
+        const confirmSummary = document.getElementById('checkoutConfirmSummary');
+        const confirmPayment = document.getElementById('checkoutConfirmPaymentDetails');
+
+        if (confirmTitle) {
+            confirmTitle.textContent = order.order_number || `Order #${order.id}`;
+        }
+        if (confirmLead) {
+            confirmLead.textContent = 'Your order was placed successfully. Transfer the grand total using the payment details below, then submit your transaction reference.';
+        }
+        if (confirmSummary) confirmSummary.innerHTML = renderCheckoutConfirmationSummary(order);
+        if (confirmPayment) {
+            confirmPayment.innerHTML = renderCheckoutConfirmationPaymentDetails(order, paymentMethods);
+        }
+        if (orderDetailLink) {
+            orderDetailLink.href = `order.html?id=${encodeURIComponent(order.id)}`;
+        }
+
+        const pendingPayment = Array.isArray(order.payments)
+            ? order.payments.find(payment => payment.status === 'pending')
+            : null;
+        const canSubmitReference = order.payment_status === 'unpaid' && pendingPayment;
+        if (referenceForm) referenceForm.hidden = !canSubmitReference;
+        if (referenceInput && pendingPayment && pendingPayment.provider_reference) {
+            referenceInput.value = pendingPayment.provider_reference;
+        }
+
+        setCheckoutView('confirm');
+        if (typeof history !== 'undefined' && history.replaceState) {
+            history.replaceState({ checkoutOrderId: order.id }, '', `checkout.html?order=${encodeURIComponent(order.id)}`);
+        }
+    }
+
+    async function syncCartAfterCheckout() {
+        apiCartItems = [];
+        apiCartLoadFailed = false;
+        try {
+            await refreshApiCartFromServer();
+        } catch (error) {
+            console.warn('AFIFI: could not refresh cart after checkout.', error);
+        }
+        renderCart();
+        updateCartBadge();
+    }
+
+    async function ensureCheckoutSettingsLoaded() {
+        if (Object.keys(window.afifiSettings || {}).length > 0) {
+            return window.afifiSettings;
+        }
+        await loadPublicSettings();
+        return window.afifiSettings;
+    }
+
+    async function loadCheckoutForm() {
+        setCheckoutView('loading');
+        clearCheckoutFieldErrors();
+        showCheckoutFormMessage(formMessage, '');
+
+        try {
+            const settings = await ensureCheckoutSettingsLoaded();
+            paymentMethods = parseManualPaymentMethods(settings);
+            if (paymentMethods.length === 0) {
+                setCheckoutView('config');
+                return;
+            }
+
+            await refreshApiCartFromServer();
+            const items = apiCartItems;
+            const unavailable = items.some(item => getCartItemDisplayState(item).unavailable);
+
+            if (items.length === 0) {
+                setCheckoutView('empty');
+                return;
+            }
+            if (unavailable) {
+                if (errorTitle) errorTitle.textContent = 'Cart needs attention';
+                if (errorText) errorText.textContent = 'Some items are unavailable or exceed stock. Update your cart before checking out.';
+                setCheckoutView('error');
+                return;
+            }
+
+            const currency = (window.afifiSettings && window.afifiSettings.defaultCurrency) || 'EGP';
+            if (itemsList) {
+                itemsList.innerHTML = renderCheckoutItemsList(items, currency);
+                wireProductImageFallbacks(itemsList);
+            }
+            const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            if (subtotalEl) subtotalEl.textContent = formatPrice(subtotal, currency);
+
+            populateGovernorateOptions();
+            prefillAddressFields();
+            renderPaymentMethodOptions(paymentMethods);
+            setCheckoutView('form');
+        } catch (error) {
+            if (error && error.status === 401) return;
+            if (errorTitle) {
+                errorTitle.textContent = error && error.status === 0 ? 'Connection problem' : 'Unable to load checkout';
+            }
+            if (errorText) {
+                errorText.textContent = (error && error.message) || API_UNREACHABLE_MESSAGE;
+            }
+            setCheckoutView('error');
+        }
+    }
+
+    async function loadConfirmedOrder(orderId) {
+        setCheckoutView('loading');
+        try {
+            const settings = await ensureCheckoutSettingsLoaded();
+            paymentMethods = parseManualPaymentMethods(settings);
+            const data = await window.afifiApi.apiRequest(`/orders/${encodeURIComponent(orderId)}`);
+            const order = data && data.data ? data.data : data;
+            if (!order || !order.id) throw new Error('Order not found');
+            showConfirmationForOrder(order);
+        } catch (error) {
+            if (error && error.status === 401) return;
+            if (errorTitle) {
+                errorTitle.textContent = error.status === 404 ? 'Order not found' : 'Unable to load order';
+            }
+            if (errorText) {
+                errorText.textContent = error.status === 404
+                    ? 'This order does not exist or is not linked to your account.'
+                    : ((error && error.message) || API_UNREACHABLE_MESSAGE);
+            }
+            setCheckoutView('error');
+        }
+    }
+
+    if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+            const params = new URLSearchParams(window.location.search);
+            const orderId = params.get('order');
+            if (orderId) void loadConfirmedOrder(orderId);
+            else void loadCheckoutForm();
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (checkoutSubmitInFlight) return;
+
+            clearCheckoutFieldErrors();
+            showCheckoutFormMessage(formMessage, '');
+
+            const address = readCheckoutAddressFromForm();
+            const clientErrors = validateCheckoutAddressClient(address);
+            const selectedMethod = getSelectedPaymentMethod();
+            if (!selectedMethod) {
+                clientErrors.payment_method = 'Please select a payment method.';
+            }
+
+            if (Object.keys(clientErrors).length > 0) {
+                applyCheckoutFieldErrors(clientErrors);
+                showCheckoutFormMessage(formMessage, 'Please fix the highlighted fields.', 'error');
+                return;
+            }
+
+            const formData = new FormData(form);
+            const payload = {
+                payment_method: selectedMethod.id,
+                address,
+                customer_notes: String(formData.get('customer_notes') || '').trim() || null
+            };
+            const couponCode = String(formData.get('coupon_code') || '').trim();
+            if (couponCode) payload.coupon_code = couponCode;
+
+            checkoutSubmitInFlight = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'PLACING ORDER...';
+            }
+
+            try {
+                const response = await window.afifiApi.apiRequest('/checkout', {
+                    method: 'POST',
+                    body: payload
+                });
+                const order = response && response.data ? response.data : response;
+                if (!order || !order.id) throw new Error('Checkout response was invalid.');
+
+                await syncCartAfterCheckout();
+                showConfirmationForOrder(order);
+            } catch (error) {
+                if (error && error.status === 401) return;
+                if (error && error.errors) {
+                    applyCheckoutFieldErrors(mapCheckoutApiErrors(error.errors));
+                }
+                showCheckoutFormMessage(formMessage, getAuthErrorMessage(error), 'error');
+            } finally {
+                checkoutSubmitInFlight = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'PLACE ORDER';
+                }
+            }
+        });
+    }
+
+    if (referenceForm) {
+        referenceForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (referenceSubmitInFlight || !confirmedOrder) return;
+
+            const reference = String(referenceInput ? referenceInput.value : '').trim();
+            showCheckoutFieldError('checkoutReferenceError', '');
+            showCheckoutFormMessage(referenceMessage, '');
+
+            if (reference.length < 3) {
+                showCheckoutFieldError('checkoutReferenceError', 'Reference must be at least 3 characters.');
+                return;
+            }
+
+            referenceSubmitInFlight = true;
+            if (referenceSubmit) {
+                referenceSubmit.disabled = true;
+                referenceSubmit.textContent = 'SUBMITTING...';
+            }
+
+            try {
+                const response = await window.afifiApi.apiRequest(
+                    `/orders/${encodeURIComponent(confirmedOrder.id)}/payment-reference`,
+                    {
+                        method: 'PUT',
+                        body: { provider_reference: reference }
+                    }
+                );
+                const payment = response && response.payment ? response.payment : null;
+                if (payment && payment.provider_reference) {
+                    referenceInput.value = payment.provider_reference;
+                }
+                showCheckoutFormMessage(referenceMessage, response.message || 'Payment reference submitted successfully.', 'success');
+            } catch (error) {
+                if (error && error.status === 401) return;
+                if (error && error.errors && error.errors.provider_reference) {
+                    const msg = Array.isArray(error.errors.provider_reference)
+                        ? error.errors.provider_reference[0]
+                        : error.errors.provider_reference;
+                    showCheckoutFieldError('checkoutReferenceError', msg);
+                } else {
+                    showCheckoutFormMessage(referenceMessage, getAuthErrorMessage(error), 'error');
+                }
+            } finally {
+                referenceSubmitInFlight = false;
+                if (referenceSubmit) {
+                    referenceSubmit.disabled = false;
+                    referenceSubmit.textContent = 'SUBMIT REFERENCE';
+                }
+            }
+        });
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order');
+    if (orderId) {
+        await loadConfirmedOrder(orderId);
+    } else {
+        await loadCheckoutForm();
+    }
+}
+
 (function initAccountPages() {
     const page = document.body.dataset.accountPage;
     if (!page) return;
@@ -4943,4 +5580,5 @@ async function initOrderDetailPage() {
     if (page === 'profile') void initProfilePage();
     else if (page === 'orders') void initOrdersPage();
     else if (page === 'order') void initOrderDetailPage();
+    else if (page === 'checkout') void initCheckoutPage();
 })();

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="images/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="images/favicon/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="images/favicon/apple-touch-icon.png">
+    <link rel="manifest" href="images/favicon/site.webmanifest">
+    <meta name="theme-color" content="#0D0D0D">
+    <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="brand.css?v=1.47">
+    <title>AFIFI | CHECKOUT</title>
+    <meta name="description" content="Complete your AFIFI order with secure manual payment.">
+</head>
+<body data-account-page="checkout">
+
+<nav class="navbar navbar-solid">
+    <a href="index.html" aria-label="AFIFI home"><img src="images/AFIFI_BRANDS_VECTOR.svg" alt=""></a>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="nav-menu" id="navMenu">
+        <div class="sections">
+            <a href="index.html">Home</a>
+            <a href="shop.html">Shop</a>
+            <a href="about.html">About</a>
+            <a href="contact.html">Contact</a>
+        </div>
+        <div class="icons">
+            <a href="#" aria-label="Search"><img src="images/search icon.svg" alt=""></a>
+            <a href="#" aria-label="Cart"><img src="images/cart.svg" alt=""></a>
+            <a href="#" aria-label="Profile"><img src="images/profile.svg" alt=""></a>
+        </div>
+    </div>
+</nav>
+
+<main id="main-content">
+
+<section class="page-header">
+    <h1>CHECKOUT</h1>
+    <div class="breadcrumbs">
+        <a href="index.html">Home</a> <span>&rsaquo;</span>
+        <a href="shop.html">Shop</a> <span>&rsaquo;</span>
+        <span>Checkout</span>
+    </div>
+</section>
+
+<section class="account-layout checkout-layout">
+    <div class="account-intro">
+        <span class="section-label">SECURE CHECKOUT</span>
+        <h2>Complete your order</h2>
+        <p>Review your cart, enter your shipping address, and pay via InstaPay or Vodafone Cash.</p>
+    </div>
+
+    <div class="account-panel checkout-panel" id="checkoutPanel">
+        <div class="account-loading" id="checkoutLoading" aria-live="polite">
+            <div class="account-skeleton account-skeleton-line"></div>
+            <div class="account-skeleton account-skeleton-card"></div>
+            <div class="account-skeleton account-skeleton-card"></div>
+        </div>
+
+        <div class="account-error" id="checkoutError" hidden>
+            <p class="account-error-title" id="checkoutErrorTitle">Unable to load checkout</p>
+            <p class="account-error-text" id="checkoutErrorText">We couldn't reach the server. Please try again.</p>
+            <button type="button" class="account-retry-btn" id="checkoutRetry">Retry</button>
+            <a href="shop.html" class="story-btn account-back-link">Continue Shopping</a>
+        </div>
+
+        <div class="account-empty" id="checkoutEmpty" hidden>
+            <p class="account-empty-title">Your cart is empty</p>
+            <p class="account-empty-text">Add items to your cart before checking out.</p>
+            <a href="shop.html" class="story-btn">Shop Now</a>
+        </div>
+
+        <div class="checkout-config-error" id="checkoutConfigError" hidden>
+            <p class="account-error-title">Checkout unavailable</p>
+            <p class="account-error-text" id="checkoutConfigErrorText">Online payment is not configured yet. Please contact AFIFI support or order via WhatsApp.</p>
+            <a href="shop.html" class="story-btn account-back-link">Continue Shopping</a>
+        </div>
+
+        <div id="checkoutFormWrap" hidden>
+            <form class="checkout-form" id="checkoutForm" novalidate>
+                <div class="checkout-section">
+                    <h3 class="checkout-section-title">ORDER SUMMARY</h3>
+                    <p class="checkout-shipping-note" id="checkoutShippingNote">Shipping is calculated by AFIFI when your order is placed. Subtotal below is from your server cart.</p>
+                    <ul class="checkout-items" id="checkoutItemsList" aria-live="polite"></ul>
+                    <p class="checkout-subtotal-row"><span>Subtotal</span><strong id="checkoutSubtotal">0 EGP</strong></p>
+                </div>
+
+                <div class="checkout-section">
+                    <h3 class="checkout-section-title">SHIPPING ADDRESS</h3>
+                    <div class="checkout-form-grid">
+                        <div class="checkout-field checkout-field-full">
+                            <label class="auth-label" for="checkoutFullName">Full Name</label>
+                            <input class="auth-input" type="text" id="checkoutFullName" name="full_name" autocomplete="name" maxlength="150" required>
+                            <p class="checkout-field-error" id="checkoutErrorFullName" role="alert" hidden></p>
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutPhone">Phone</label>
+                            <input class="auth-input" type="tel" id="checkoutPhone" name="phone" autocomplete="tel" maxlength="20" required>
+                            <p class="checkout-field-error" id="checkoutErrorPhone" role="alert" hidden></p>
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutGovernorate">Governorate</label>
+                            <select class="auth-input" id="checkoutGovernorate" name="governorate_name" required>
+                                <option value="">Select governorate</option>
+                            </select>
+                            <p class="checkout-field-error" id="checkoutErrorGovernorate" role="alert" hidden></p>
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutCity">City</label>
+                            <input class="auth-input" type="text" id="checkoutCity" name="city" autocomplete="address-level2" maxlength="100" required>
+                            <p class="checkout-field-error" id="checkoutErrorCity" role="alert" hidden></p>
+                        </div>
+                        <div class="checkout-field checkout-field-full">
+                            <label class="auth-label" for="checkoutStreet">Street</label>
+                            <input class="auth-input" type="text" id="checkoutStreet" name="street" autocomplete="street-address" maxlength="200" required>
+                            <p class="checkout-field-error" id="checkoutErrorStreet" role="alert" hidden></p>
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutArea">Area (optional)</label>
+                            <input class="auth-input" type="text" id="checkoutArea" name="area" maxlength="150">
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutBuilding">Building (optional)</label>
+                            <input class="auth-input" type="text" id="checkoutBuilding" name="building" maxlength="50">
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutFloor">Floor (optional)</label>
+                            <input class="auth-input" type="text" id="checkoutFloor" name="floor" maxlength="20">
+                        </div>
+                        <div class="checkout-field">
+                            <label class="auth-label" for="checkoutPostalCode">Postal Code (optional)</label>
+                            <input class="auth-input" type="text" id="checkoutPostalCode" name="postal_code" maxlength="20">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="checkout-section">
+                    <h3 class="checkout-section-title">PAYMENT METHOD</h3>
+                    <fieldset class="checkout-payment-fieldset" id="checkoutPaymentFieldset">
+                        <legend class="visually-hidden">Choose a payment method</legend>
+                        <div class="checkout-payment-options" id="checkoutPaymentMethods" role="radiogroup" aria-label="Payment method"></div>
+                    </fieldset>
+                    <p class="checkout-field-error" id="checkoutErrorPaymentMethod" role="alert" hidden></p>
+                    <div class="checkout-payment-instructions" id="checkoutPaymentInstructions" hidden></div>
+                </div>
+
+                <div class="checkout-section">
+                    <h3 class="checkout-section-title">COUPON (OPTIONAL)</h3>
+                    <div class="checkout-field">
+                        <label class="auth-label" for="checkoutCoupon">Coupon Code</label>
+                        <input class="auth-input" type="text" id="checkoutCoupon" name="coupon_code" maxlength="50" autocomplete="off">
+                        <p class="checkout-field-error" id="checkoutErrorCoupon" role="alert" hidden></p>
+                    </div>
+                </div>
+
+                <div class="checkout-section">
+                    <h3 class="checkout-section-title">ORDER NOTES (OPTIONAL)</h3>
+                    <div class="checkout-field checkout-field-full">
+                        <label class="auth-label" for="checkoutNotes">Customer Notes</label>
+                        <textarea class="auth-input checkout-textarea" id="checkoutNotes" name="customer_notes" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <p class="checkout-form-message" id="checkoutFormMessage" role="alert" hidden></p>
+
+                <div class="checkout-actions">
+                    <button type="submit" class="auth-submit checkout-submit" id="checkoutSubmit">PLACE ORDER</button>
+                    <a href="shop.html" class="story-btn account-btn-link">Continue Shopping</a>
+                </div>
+            </form>
+        </div>
+
+        <div id="checkoutConfirmation" hidden>
+            <div class="checkout-confirm-header">
+                <p class="checkout-confirm-kicker">Order placed</p>
+                <h2 class="checkout-confirm-title" id="checkoutConfirmTitle">Thank you</h2>
+                <p class="checkout-confirm-lead" id="checkoutConfirmLead"></p>
+            </div>
+
+            <div class="checkout-section" id="checkoutConfirmSummary"></div>
+            <div class="checkout-section" id="checkoutConfirmPaymentDetails"></div>
+
+            <form class="checkout-reference-form" id="checkoutReferenceForm" novalidate>
+                <h3 class="checkout-section-title">PAYMENT REFERENCE</h3>
+                <p class="checkout-reference-help">After transferring the order total, enter your transaction reference below so AFIFI can verify your payment.</p>
+                <div class="checkout-field checkout-field-full">
+                    <label class="auth-label" for="checkoutReferenceInput">Transaction Reference</label>
+                    <input class="auth-input" type="text" id="checkoutReferenceInput" name="provider_reference" minlength="3" maxlength="255" required>
+                    <p class="checkout-field-error" id="checkoutReferenceError" role="alert" hidden></p>
+                </div>
+                <p class="checkout-form-message" id="checkoutReferenceMessage" role="status" hidden></p>
+                <button type="submit" class="auth-submit" id="checkoutReferenceSubmit">SUBMIT REFERENCE</button>
+            </form>
+
+            <div class="checkout-confirm-links">
+                <a href="#" class="story-btn" id="checkoutOrderDetailLink">View Order</a>
+                <a href="orders.html" class="story-btn account-btn-link">My Orders</a>
+                <a href="shop.html" class="story-btn account-btn-link">Continue Shopping</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+    <div class="footer-main">
+        <div class="footer-brand">
+            <img src="images/AFIFI_BRANDS_VECTOR.svg" alt="AFIFI Logo" class="footer-logo">
+            <p>Premium Egyptian brand crafted with passion and dedicated to quality.</p>
+            <div class="social-icons">
+                <a href="https://www.instagram.com/afifi_15may?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" aria-label="Instagram" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg></a>
+                <a href="https://www.tiktok.com/@afifi9087?is_from_webapp=1&sender_device=pc" aria-label="TikTok" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V9.17a8.16 8.16 0 004.76 1.52v-3.4a4.85 4.85 0 01-1-.6z"/></svg></a>
+                <a href="https://www.facebook.com/Afifibrands" aria-label="Facebook" target="_blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+            </div>
+        </div>
+        <div class="footer-links">
+            <div class="footer-col"><p class="footer-col-title">SHOP</p><a href="shop.html">All Products</a><a href="shop.html">T-Shirts</a><a href="shop.html">Hoodies</a><a href="shop.html">Pants</a><a href="shop.html">Accessories</a></div>
+            <div class="footer-col"><p class="footer-col-title">COMPANY</p><a href="about.html">Our Story</a><a href="contact.html">Contact Us</a></div>
+            <div class="footer-col"><p class="footer-col-title">SUPPORT</p><a href="support.html#size-guide">Size Guide</a><a href="support.html#shipping">Shipping & Returns</a></div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; 2026 AFIFI BRANDS. All Rights Reserved.</p>
+        <div class="footer-bottom-links"><a href="support.html#privacy">Privacy Policy</a><a href="support.html#terms">Terms & Conditions</a></div>
+    </div>
+</footer>
+
+<script src="brand.js?v=1.39"></script>
+</body>
+</html>
