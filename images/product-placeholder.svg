@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-labelledby="title desc">
+  <title id="title">AFIFI product image unavailable</title>
+  <desc id="desc">A neutral placeholder shown only when a product image is missing or cannot load.</desc>
+  <rect width="800" height="1000" fill="#f2f2f2"/>
+  <path d="M230 610 342 470l86 99 62-69 118 142H192z" fill="#d6d6d6"/>
+  <circle cx="548" cy="378" r="44" fill="#d6d6d6"/>
+  <text x="400" y="720" fill="#222" font-family="Arial, sans-serif" font-size="58" font-weight="700" text-anchor="middle" letter-spacing="12">AFIFI</text>
+  <text x="400" y="776" fill="#777" font-family="Arial, sans-serif" font-size="24" text-anchor="middle">IMAGE UNAVAILABLE</text>
+</svg>

@@ -10,14 +10,114 @@ function resolveApiBaseUrl() {
     const { protocol, hostname, origin } = window.location;
     const isLocalHost = protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1';
 
-    if (isLocalHost) return 'http://127.0.0.1:8000/api';
+    if (isLocalHost) return 'https://afifi-backend-production.up.railway.app/api';
 
-    return `${origin}/api`;
+    return 'https://afifi-backend-production.up.railway.app/api';
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
 const API_UNREACHABLE_MESSAGE = 'Unable to connect to the server. Please try again later.';
 const AUTH_TOKEN_KEY = 'afifiAuthToken';
+
+const PUBLIC_CACHE_TTL = {
+    CATEGORIES: 10 * 60 * 1000,
+    HOMEPAGE: 5 * 60 * 1000,
+    PRODUCTS: 2 * 60 * 1000,
+    PRODUCT_DETAIL: 2 * 60 * 1000,
+    SETTINGS: 5 * 60 * 1000
+};
+
+const publicRequestState = {
+    inFlight: new Map(),
+    cache: new Map()
+};
+
+function normalizePublicPath(path) {
+    const trimmed = String(path || '').trim();
+    if (!trimmed) return '/';
+    const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const [pathname, query = ''] = withLeadingSlash.split('?');
+    if (!query) return pathname;
+
+    const params = new URLSearchParams(query);
+    params.sort();
+    const normalizedQuery = params.toString();
+    return normalizedQuery ? `${pathname}?${normalizedQuery}` : pathname;
+}
+
+function isPublicCacheableGetPath(path) {
+    const normalized = normalizePublicPath(path);
+    return (
+        normalized.startsWith('/catalog/')
+        || normalized.startsWith('/cms/')
+        || normalized === '/settings/public'
+        || normalized.startsWith('/settings/public?')
+        || normalized === '/campaigns/active'
+        || normalized.startsWith('/campaigns/active?')
+    );
+}
+
+async function fetchPublicJson(path, options = {}) {
+    const {
+        ttl = 0,
+        forceRefresh = false,
+        method = 'GET',
+        ...apiOptions
+    } = options;
+
+    const normalizedPath = normalizePublicPath(path);
+    const normalizedMethod = String(method).toUpperCase();
+    const authScope = getAuthToken() ? 'authenticated' : 'anonymous';
+    const cacheKey = `${authScope}:${normalizedMethod}:${normalizedPath}`;
+    const now = Date.now();
+    const canCache = normalizedMethod === 'GET' && ttl > 0
+        && isPublicCacheableGetPath(normalizedPath) && authScope === 'anonymous';
+
+    if (canCache && !forceRefresh) {
+        const cached = publicRequestState.cache.get(cacheKey);
+        if (cached && cached.expiresAt > now) {
+            return cached.data;
+        }
+    }
+
+    if (normalizedMethod === 'GET' && !forceRefresh && publicRequestState.inFlight.has(cacheKey)) {
+        return publicRequestState.inFlight.get(cacheKey);
+    }
+
+    const requestPromise = (async () => {
+        try {
+            const data = await apiRequest(normalizedPath, { method: normalizedMethod, ...apiOptions });
+            if (canCache) {
+                publicRequestState.cache.set(cacheKey, {
+                    data,
+                    expiresAt: now + ttl
+                });
+            }
+            return data;
+        } finally {
+            if (normalizedMethod === 'GET') {
+                publicRequestState.inFlight.delete(cacheKey);
+            }
+        }
+    })();
+
+    if (normalizedMethod === 'GET') {
+        publicRequestState.inFlight.set(cacheKey, requestPromise);
+    }
+
+    return requestPromise;
+}
+
+function clearPublicCatalogCache() {
+    Array.from(publicRequestState.cache.keys()).forEach((key) => {
+        if (key.includes('/catalog/')) {
+            publicRequestState.cache.delete(key);
+        }
+    });
+    catalogProductsCache = null;
+    catalogProductsPromise = null;
+    productLookupMapCache = null;
+}
 
 function getAuthToken() {
     return localStorage.getItem(AUTH_TOKEN_KEY);
@@ -153,7 +253,7 @@ function settingsArrayToObject(data) {
 
 async function loadPublicSettings() {
     try {
-        const response = await window.afifiApi.apiRequest('/settings/public');
+        const response = await fetchPublicJson('/settings/public', { ttl: PUBLIC_CACHE_TTL.SETTINGS });
         const settings = settingsArrayToObject(response && response.data);
 
         window.afifiSettings = settings;
@@ -206,43 +306,105 @@ function formatPrice(price, currency) {
 
 function resolveMediaUrl(media) {
     if (!media) return '';
-    if (media.url) return media.url;
-    if (media.path) {
-        const base = API_BASE_URL.replace(/\/api\/?$/, '');
-        const path = String(media.path).replace(/^\/+/, '');
-        return `${base}/storage/${path}`;
+
+    const base = API_BASE_URL.replace(/\/api\/?$/, '');
+
+    const normalize = (value) => {
+        if (!value) return '';
+
+        const url = String(value).replace(/\\\//g, '/');
+
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+
+        const cleanPath = url.replace(/^\/+/, '');
+
+        if (cleanPath.startsWith('storage/')) {
+            return `${base}/${cleanPath}`;
+        }
+
+        return `${base}/storage/${cleanPath}`;
+    };
+
+    if (typeof media === 'string') {
+        return normalize(media);
     }
-    return '';
+
+    return normalize(media.url || media.path || media.src);
+}
+
+const PRODUCT_PLACEHOLDER_SRC = 'images/product-placeholder.svg';
+
+function attachImageErrorFallback(img, fallbackSrc = PRODUCT_PLACEHOLDER_SRC) {
+    if (!img || img.dataset.fallbackReady === 'true') return img;
+
+    img.dataset.fallbackReady = 'true';
+    img.addEventListener('error', function handleProductImageError() {
+        img.removeEventListener('error', handleProductImageError);
+        const currentSrc = img.currentSrc || img.src || '';
+        if (currentSrc.includes('product-placeholder.svg')) return;
+        if (img.dataset.fallbackApplied === 'true') return;
+        img.dataset.fallbackApplied = 'true';
+        img.src = fallbackSrc;
+    });
+
+    return img;
+}
+
+function wireProductImageFallbacks(root = document) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('.product-card img, .cart-item-thumb img, .wishlist-item-thumb img, .related-grid img')
+        .forEach((img) => attachImageErrorFallback(img));
+}
+
+function resolveProductMediaRef(image) {
+    if (!image) return null;
+    if (typeof image === 'string') return image;
+    if (image.media) return image.media;
+    return image.url || image.path || image.src || image.primary_image || image.image_url || null;
+}
+
+function getProductImageUrls(product) {
+    if (!product) return [];
+    const rawImages = product.images;
+    const images = Array.isArray(rawImages)
+        ? rawImages
+        : (rawImages ? [rawImages] : []);
+
+    if (images.length === 0) {
+        const directImage = product.primary_image || product.image_url || product.image || product.media;
+        const directUrl = resolveMediaUrl(resolveProductMediaRef(directImage));
+        return directUrl ? [directUrl] : [];
+    }
+
+    const sorted = [...images].sort((a, b) => {
+        const aPrimary = a?.is_primary ? 0 : 1;
+        const bPrimary = b?.is_primary ? 0 : 1;
+
+        if (aPrimary !== bPrimary) {
+            return aPrimary - bPrimary;
+        }
+
+        return (
+            (Number(a?.display_order) || 0) -
+            (Number(b?.display_order) || 0)
+        );
+    });
+
+    return sorted
+        .map((image) => resolveMediaUrl(resolveProductMediaRef(image)))
+        .filter(Boolean);
 }
 
 function getProductImages(product) {
-    const fallback = 'images/AFIFI_BRANDS_VECTOR.svg';
-    const images = product && product.images;
-    if (!images) return [fallback];
-    if (typeof images === 'string') return [images];
-    if (Array.isArray(images) && images.length > 0) {
-        const sorted = [...images].sort((a, b) => {
-            const aPrimary = a && a.is_primary ? 0 : 1;
-            const bPrimary = b && b.is_primary ? 0 : 1;
-            if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-            return (Number(a && a.display_order) || 0) - (Number(b && b.display_order) || 0);
-        });
-        const urls = sorted
-            .map(img => {
-                if (typeof img === 'string') return img;
-                if (img && typeof img === 'object') {
-                    return img.url || resolveMediaUrl(img.media) || img.path || img.src || '';
-                }
-                return '';
-            })
-            .filter(Boolean);
-        return urls.length > 0 ? urls : [fallback];
-    }
-    return [fallback];
+    const urls = getProductImageUrls(product);
+    return urls.length ? urls : [PRODUCT_PLACEHOLDER_SRC];
 }
 
 function getProductImage(product) {
-    return getProductImages(product)[0];
+    const urls = getProductImageUrls(product);
+    return urls[0] || PRODUCT_PLACEHOLDER_SRC;
 }
 
 // Shared, cached, pagination-aware fetch for /catalog/products.
@@ -252,9 +414,15 @@ function getProductImage(product) {
 let catalogProductsCache = null;
 let catalogProductsPromise = null;
 
-async function fetchCatalogProducts() {
-    if (catalogProductsCache) return catalogProductsCache;
-    if (catalogProductsPromise) return catalogProductsPromise;
+async function fetchCatalogProducts(options = {}) {
+    const forceRefresh = Boolean(options.forceRefresh);
+
+    if (!forceRefresh && catalogProductsCache) return catalogProductsCache;
+    if (!forceRefresh && catalogProductsPromise) return catalogProductsPromise;
+
+    if (forceRefresh) {
+        clearPublicCatalogCache();
+    }
 
     const perPage = 100;
     const maxPages = 50; // safety cap against a runaway/misbehaving API
@@ -265,7 +433,11 @@ async function fetchCatalogProducts() {
         let allProducts = [];
 
         while (page <= lastPage && page <= maxPages) {
-            const response = await window.afifiApi.apiRequest(`/catalog/products?per_page=${perPage}&page=${page}`);
+            const path = `/catalog/products?per_page=${perPage}&page=${page}`;
+            const response = await fetchPublicJson(path, {
+                ttl: PUBLIC_CACHE_TTL.PRODUCTS,
+                forceRefresh
+            });
             const pageProducts = Array.isArray(response && response.data) ? response.data : [];
             allProducts = allProducts.concat(pageProducts);
 
@@ -283,6 +455,66 @@ async function fetchCatalogProducts() {
         return products;
     } finally {
         catalogProductsPromise = null;
+    }
+}
+
+function isNumericProductIdentifier(identifier) {
+    return /^\d+$/.test(String(identifier || '').trim());
+}
+
+async function fetchPublicProduct(identifier, options = {}) {
+    if (!identifier) return null;
+
+    const forceRefresh = Boolean(options.forceRefresh);
+    const trimmed = String(identifier).trim();
+
+    if (isNumericProductIdentifier(trimmed)) {
+        try {
+            const response = await fetchPublicJson(
+                `/catalog/products/${encodeURIComponent(trimmed)}`,
+                {
+                    ttl: PUBLIC_CACHE_TTL.PRODUCT_DETAIL,
+                    forceRefresh
+                }
+            );
+            return response && response.data ? response.data : null;
+        } catch (error) {
+            if (error && (error.status === 404 || error.status === 422)) return null;
+            throw error;
+        }
+    }
+
+    // Public detail route resolves products by numeric ID only; slug links use catalog search.
+    const response = await fetchPublicJson(
+        `/catalog/products?search=${encodeURIComponent(trimmed)}&per_page=24`,
+        {
+            ttl: PUBLIC_CACHE_TTL.PRODUCTS,
+            forceRefresh
+        }
+    );
+    const products = Array.isArray(response && response.data) ? response.data : [];
+    return findProductBySlugOrId(products, trimmed);
+}
+
+async function fetchRelatedProductsForProduct(product, options = {}) {
+    const embedded = product && product.related_products;
+    if (Array.isArray(embedded)) return embedded;
+
+    const categoryId = product && product.category && product.category.id;
+    if (!categoryId) return [];
+
+    try {
+        const response = await fetchPublicJson(
+            `/catalog/products?category_id=${encodeURIComponent(categoryId)}&per_page=24`,
+            {
+                ttl: PUBLIC_CACHE_TTL.PRODUCTS,
+                forceRefresh: Boolean(options.forceRefresh)
+            }
+        );
+        return Array.isArray(response && response.data) ? response.data : [];
+    } catch (error) {
+        console.warn('AFIFI: could not load related products.', error);
+        return [];
     }
 }
 
@@ -328,34 +560,80 @@ function getProductPageIdentifier() {
 function renderProductCard(product) {
     const identifier = product.slug || product.id;
     const name = product.name || 'AFIFI PRODUCT';
-    const safeName = escapeHtml(name);
     const image = getProductImage(product);
     const price = formatPrice(product.base_price);
-    const badge = product.badge ? escapeHtml(product.badge) : '';
+    const badge = product.badge ? String(product.badge) : '';
     const href = getProductPageHref(product);
     const soldOut = isProductFullySoldOut(product);
 
     const card = document.createElement('div');
-    card.className = 'product-card' + (soldOut ? ' product-card--sold-out' : '');
-    if (identifier) card.dataset.id = identifier;
+    card.className =
+        'product-card' +
+        (soldOut ? ' product-card--sold-out' : '');
 
-    const imageLink = href
-        ? `<a href="${href}"><img src="${image}" alt="${safeName}" loading="lazy"></a>`
-        : `<img src="${image}" alt="${safeName}" loading="lazy">`;
-    const titleLink = href
-        ? `<h3><a href="${href}">${safeName}</a></h3>`
-        : `<h3>${safeName}</h3>`;
-    const soldOutBadge = soldOut ? '<span class="product-badge product-badge-sold-out">SOLD OUT</span>' : '';
+    if (identifier) {
+        card.dataset.id = identifier;
+    }
 
-    card.innerHTML = `
-        <div class="product-img">
-            ${badge && !soldOut ? `<span class="product-badge">${badge}</span>` : ''}
-            ${soldOutBadge}
-            ${imageLink}
-            <button class="wishlist" aria-label="Add ${safeName} to wishlist">&hearts;</button>
-        </div>
-        <div class="product-info">${titleLink}<p>${price}</p></div>
-    `;
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'product-img';
+
+    if (badge && !soldOut) {
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'product-badge';
+        badgeEl.textContent = badge;
+        imgWrap.appendChild(badgeEl);
+    }
+
+    if (soldOut) {
+        const soldOutBadgeEl = document.createElement('span');
+        soldOutBadgeEl.className = 'product-badge product-badge-sold-out';
+        soldOutBadgeEl.textContent = 'SOLD OUT';
+        imgWrap.appendChild(soldOutBadgeEl);
+    }
+
+    const productImg = document.createElement('img');
+    productImg.src = image;
+    productImg.alt = name;
+    productImg.loading = 'lazy';
+    productImg.decoding = 'async';
+    attachImageErrorFallback(productImg);
+
+    if (href) {
+        const link = document.createElement('a');
+        link.href = href;
+        link.appendChild(productImg);
+        imgWrap.appendChild(link);
+    } else {
+        imgWrap.appendChild(productImg);
+    }
+
+    const wishlistBtn = document.createElement('button');
+    wishlistBtn.className = 'wishlist';
+    wishlistBtn.setAttribute('aria-label', `Add ${name} to wishlist`);
+    wishlistBtn.innerHTML = '&hearts;';
+    imgWrap.appendChild(wishlistBtn);
+
+    const infoWrap = document.createElement('div');
+    infoWrap.className = 'product-info';
+
+    const titleHeading = document.createElement('h3');
+    if (href) {
+        const titleLink = document.createElement('a');
+        titleLink.href = href;
+        titleLink.textContent = name;
+        titleHeading.appendChild(titleLink);
+    } else {
+        titleHeading.textContent = name;
+    }
+    infoWrap.appendChild(titleHeading);
+
+    const priceEl = document.createElement('p');
+    priceEl.textContent = price;
+    infoWrap.appendChild(priceEl);
+
+    card.appendChild(imgWrap);
+    card.appendChild(infoWrap);
 
     return card;
 }
@@ -511,12 +789,11 @@ async function loadHomepageProducts(options = {}) {
     hideHomepageSectionPanels(bestSellersEmpty, bestSellersError);
 
     if (isRetry) {
-        catalogProductsCache = null;
-        catalogProductsPromise = null;
+        clearPublicCatalogCache();
     }
 
     try {
-        const products = await fetchCatalogProducts();
+        const products = await fetchCatalogProducts({ forceRefresh: isRetry });
         homepageLoadErrorLogged = false;
 
         const newArrivals = products.filter(p => p.is_new_arrival);
@@ -566,6 +843,7 @@ async function loadHomepageProducts(options = {}) {
         }
         catalogProductsCache = null;
         catalogProductsPromise = null;
+        clearPublicCatalogCache();
         purgeHomepageSectionProductCards();
         showHomepageSectionError(newArrivalsGrid, newArrivalsEmpty, newArrivalsError);
         showHomepageSectionError(bestSellersTrack, bestSellersEmpty, bestSellersError);
@@ -932,7 +1210,7 @@ let productRetryInFlight = false;
 let productLoadErrorLogged = false;
 
 // ========== PRODUCT PAGE: THUMBNAIL SWITCHING ==========
-const PRODUCT_IMAGE_FALLBACK = 'images/AFIFI_BRANDS_VECTOR.svg';
+const PRODUCT_IMAGE_FALLBACK = PRODUCT_PLACEHOLDER_SRC;
 
 function preloadProductImage(url) {
     if (!url) return;
@@ -965,7 +1243,9 @@ function setMainProductImage(src, alt) {
 
     mainImg.onload = showLoaded;
     mainImg.onerror = () => {
-        if (mainImg.src.includes('AFIFI_BRANDS_VECTOR')) {
+        mainImg.onerror = null;
+        const currentSrc = mainImg.currentSrc || mainImg.src || '';
+        if (currentSrc.includes('product-placeholder.svg')) {
             showLoaded();
             return;
         }
@@ -1323,12 +1603,11 @@ async function loadShopProducts(options = {}) {
     hideShopLoadError();
 
     if (isRetry) {
-        catalogProductsCache = null;
-        catalogProductsPromise = null;
+        clearPublicCatalogCache();
     }
 
     try {
-        const products = await fetchCatalogProducts();
+        const products = await fetchCatalogProducts({ forceRefresh: isRetry });
 
         shopGrid.querySelectorAll('.product-card, .shop-skeleton-card').forEach(el => el.remove());
         shopLoadErrorLogged = false;
@@ -1746,10 +2025,7 @@ function renderThumbnails(images, productName) {
         img.height = 80;
         img.decoding = 'async';
         img.loading = 'lazy';
-        img.onerror = function onThumbError() {
-            this.onerror = null;
-            this.src = PRODUCT_IMAGE_FALLBACK;
-        };
+        attachImageErrorFallback(img);
 
         thumbBtn.appendChild(img);
         container.appendChild(thumbBtn);
@@ -2057,13 +2333,11 @@ async function loadProductDetails(options = {}) {
         productRetryInFlight = true;
         setProductRetryUi(true);
         restoreProductPageLoadingState();
-        catalogProductsCache = null;
-        catalogProductsPromise = null;
+        clearPublicCatalogCache();
     }
 
     try {
-        const products = await fetchCatalogProducts();
-        const matched = findProductBySlugOrId(products, productPageIdentifier);
+        const matched = await fetchPublicProduct(productPageIdentifier, { forceRefresh: isRetry });
 
         if (!matched) {
             console.warn(`AFIFI: no product found for "${productPageIdentifier}".`);
@@ -2154,10 +2428,12 @@ async function loadProductDetails(options = {}) {
 
         renderSizeButtons(sizes);
         renderColorSwatches(colors);
-        renderRelatedProducts(matched, products);
         revealProductDetailUI(matched);
         updateProductDescriptionTab(matched);
         updateProductPageStockState();
+
+        const relatedPool = await fetchRelatedProductsForProduct(matched, { forceRefresh: isRetry });
+        renderRelatedProducts(matched, relatedPool);
     } catch (error) {
         if (!productLoadErrorLogged) {
             console.warn('AFIFI: could not load product details from API.', error);
@@ -2681,7 +2957,7 @@ updateAuthUI();
 
 // ========== CART AND WHATSAPP ORDERING ==========
 let whatsappNumber = '201109960670';
-const CART_PLACEHOLDER_IMAGE = 'images/AFIFI_BRANDS_VECTOR.svg';
+const CART_PLACEHOLDER_IMAGE = PRODUCT_PLACEHOLDER_SRC;
 
 // Normalizes both legacy items ({ name, price, qty }) and richer items
 // ({ id, productId, variantId, name, price, quantity, size, color, image })
@@ -2738,8 +3014,7 @@ let apiCartLoadErrorLogged = false;
 let productLookupMapCache = null;
 
 function invalidateCatalogStockCache() {
-    catalogProductsCache = null;
-    productLookupMapCache = null;
+    clearPublicCatalogCache();
 }
 
 function getActiveCartItems() {
@@ -3297,7 +3572,7 @@ function renderCart() {
             return `
             <div class="cart-item${itemClass}">
                 <div class="cart-item-thumb">
-                    <img src="${item.image || CART_PLACEHOLDER_IMAGE}" alt="${safeName}" onerror="this.src='${CART_PLACEHOLDER_IMAGE}'">
+                    <img src="${item.image || PRODUCT_PLACEHOLDER_SRC}" alt="${safeName}">
                 </div>
                 <div class="cart-item-info">
                     <strong>${safeName}</strong>
@@ -3317,6 +3592,7 @@ function renderCart() {
             </div>
         `;
         }).join('');
+        wireProductImageFallbacks(itemsWrap);
     }
 
     const total = activeItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -3885,7 +4161,7 @@ async function renderWishlist() {
         return `
             <div class="wishlist-item">
                 <div class="wishlist-item-thumb">
-                    <img src="${item.image || WISHLIST_PLACEHOLDER_IMAGE}" alt="${safeName}" onerror="this.src='${WISHLIST_PLACEHOLDER_IMAGE}'">
+                    <img src="${item.image || PRODUCT_PLACEHOLDER_SRC}" alt="${safeName}">
                 </div>
                 <div class="wishlist-item-info">
                     <strong>${safeName}</strong>
@@ -3898,6 +4174,7 @@ async function renderWishlist() {
             </div>
         `;
     }).join('');
+    wireProductImageFallbacks(itemsWrap);
 }
 
 function createWishlistPanel() {
