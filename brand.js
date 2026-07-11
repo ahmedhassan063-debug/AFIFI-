@@ -2825,25 +2825,26 @@ function createAuthModal() {
         showMessage('Success! Welcome to AFIFI.', 'success');
         updateAuthUI();
         try {
-            await mergeGuestCartIntoApiCart();
-        } catch (error) {
-            console.warn('AFIFI: guest cart merge failed after auth.', error);
-            showCartMergeWarning('Some cart items may not have synced. They remain saved on this device.');
-            await loadApiCart();
-        }
-        try {
-            await mergeGuestWishlistIntoApiWishlist();
-        } catch (error) {
-            console.warn('AFIFI: guest wishlist merge failed after auth.', error);
-            showWishlistMergeWarning('Some wishlist items may not have synced. They remain saved on this device.');
-            await loadApiWishlist();
-        }
-        setTimeout(() => {
+            try {
+                await mergeGuestCartIntoApiCart();
+            } catch (error) {
+                console.warn('AFIFI: guest cart merge failed after auth.', error);
+                showCartMergeWarning('Some cart items may not have synced. They remain saved on this device.');
+                await loadApiCart();
+            }
+            try {
+                await mergeGuestWishlistIntoApiWishlist();
+            } catch (error) {
+                console.warn('AFIFI: guest wishlist merge failed after auth.', error);
+                showWishlistMergeWarning('Some wishlist items may not have synced. They remain saved on this device.');
+                await loadApiWishlist();
+            }
+        } finally {
             closeModal();
             if (document.body.dataset.accountPage) {
                 window.location.reload();
             }
-        }, 900);
+        }
     }
 
     loginForm.addEventListener('submit', async (e) => {
@@ -2865,7 +2866,7 @@ function createAuthModal() {
                     password
                 }
             });
-            handleAuthSuccess(data);
+            await handleAuthSuccess(data);
         } catch (error) {
             showMessage(getAuthErrorMessage(error), 'error');
         } finally {
@@ -2896,7 +2897,7 @@ function createAuthModal() {
                     password_confirmation: passwordConfirmation
                 }
             });
-            handleAuthSuccess(data);
+            await handleAuthSuccess(data);
         } catch (error) {
             showMessage(getAuthErrorMessage(error), 'error');
         } finally {
