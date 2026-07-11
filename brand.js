@@ -2541,22 +2541,36 @@ function handleAccountMenuAction(action, closeFn) {
 }
 
 async function handleLogout() {
-    const token = window.afifiApi.getAuthToken();
-    if (token) {
-        try {
-            await window.afifiApi.apiRequest('/auth/logout', { method: 'POST' });
-        } catch (error) {
-            console.warn('AFIFI: logout request failed, clearing local session anyway.', error);
+    if (logoutInFlight) return;
+    logoutInFlight = true;
+    const onProtectedPage = Boolean(document.body.dataset.accountPage);
+
+    try {
+        const token = window.afifiApi.getAuthToken();
+        if (token) {
+            try {
+                await window.afifiApi.apiRequest('/auth/logout', { method: 'POST' });
+            } catch (error) {
+                console.warn('AFIFI: logout request failed, clearing local session anyway.', error);
+            }
+        }
+    } finally {
+        window.afifiApi.clearAuthToken();
+        clearStoredUser();
+        authMeInFlight = null;
+        apiCartItems = [];
+        apiWishlistItems = [];
+        cartItems = readGuestCartFromStorage();
+        wishlistItems = readGuestWishlistFromStorage();
+        updateAuthUI();
+        renderCart();
+        if (typeof updateWishlistBadge === 'function') updateWishlistBadge();
+        if (typeof renderWishlist === 'function') renderWishlist();
+        logoutInFlight = false;
+        if (onProtectedPage) {
+            window.location.href = 'index.html';
         }
     }
-    window.afifiApi.clearAuthToken();
-    clearStoredUser();
-    apiCartItems = [];
-    apiWishlistItems = [];
-    cartItems = readGuestCartFromStorage();
-    wishlistItems = readGuestWishlistFromStorage();
-    updateAuthUI();
-    renderCart();
 }
 
 function createAccountMenu() {
@@ -2834,14 +2848,20 @@ function createAuthModal() {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         showMessage('');
+        const formData = new FormData(loginForm);
+        const login = String(formData.get('login') || '').trim();
+        const password = formData.get('password');
+        if (!login || !password) {
+            showMessage('Email or phone and password are required.', 'error');
+            return;
+        }
         setFormLoading(loginForm, true);
         try {
-            const formData = new FormData(loginForm);
             const data = await window.afifiApi.apiRequest('/auth/login', {
                 method: 'POST',
                 body: {
-                    login: formData.get('login'),
-                    password: formData.get('password')
+                    login,
+                    password
                 }
             });
             handleAuthSuccess(data);
@@ -2855,9 +2875,15 @@ function createAuthModal() {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         showMessage('');
+        const formData = new FormData(registerForm);
+        const password = formData.get('password');
+        const passwordConfirmation = formData.get('password_confirmation');
+        if (password !== passwordConfirmation) {
+            showMessage('Password confirmation does not match.', 'error');
+            return;
+        }
         setFormLoading(registerForm, true);
         try {
-            const formData = new FormData(registerForm);
             const email = formData.get('email');
             const data = await window.afifiApi.apiRequest('/auth/register', {
                 method: 'POST',
@@ -2865,8 +2891,8 @@ function createAuthModal() {
                     name: formData.get('name'),
                     email: email ? email : null,
                     phone: formData.get('phone'),
-                    password: formData.get('password'),
-                    password_confirmation: formData.get('password_confirmation')
+                    password,
+                    password_confirmation: passwordConfirmation
                 }
             });
             handleAuthSuccess(data);
@@ -2890,6 +2916,40 @@ function openAuthModal(tabName) {
 let authSessionOffline = false;
 let authSessionNoticeMessage = '';
 let authSessionErrorLogged = false;
+let authMeInFlight = null;
+let logoutInFlight = false;
+
+async function fetchAuthMe(options = {}) {
+    const forceRefresh = Boolean(options.forceRefresh);
+    if (!isLoggedIn()) return null;
+
+    if (!forceRefresh && authMeInFlight) {
+        return authMeInFlight;
+    }
+
+    const requestPromise = (async () => {
+        try {
+            const data = await window.afifiApi.apiRequest('/auth/me');
+            const user = data && data.user ? data.user : null;
+            if (user) {
+                setStoredUser(user);
+                hideAccountSessionNotice();
+                authSessionErrorLogged = false;
+            }
+            return user;
+        } catch (error) {
+            if (error && error.status === 401) {
+                throw error;
+            }
+            return getStoredUser();
+        } finally {
+            authMeInFlight = null;
+        }
+    })();
+
+    authMeInFlight = requestPromise;
+    return requestPromise;
+}
 
 function ensureAccountSessionNotice() {
     if (!authSessionOffline || !authSessionNoticeMessage) return;
@@ -2932,14 +2992,8 @@ async function refreshAuthSession() {
     if (cachedUser) updateAuthUI();
 
     try {
-        const data = await window.afifiApi.apiRequest('/auth/me');
-        const user = data && data.user ? data.user : null;
-        if (user) {
-            setStoredUser(user);
-            hideAccountSessionNotice();
-            authSessionErrorLogged = false;
-        }
-        updateAuthUI();
+        const user = await fetchAuthMe();
+        if (user) updateAuthUI();
     } catch (error) {
         if (error && error.status === 401) return;
         if (!authSessionErrorLogged) {
@@ -4417,15 +4471,25 @@ async function initProfilePage() {
         }, state);
     }
 
-    async function loadProfile() {
-        setProfileState('loading');
+    async function loadProfile(options = {}) {
+        const forceRefresh = Boolean(options.forceRefresh);
+
+        if (!forceRefresh && currentUser && detailsEl) {
+            detailsEl.innerHTML = renderProfileDetails(currentUser);
+            setProfileState('ready');
+        } else {
+            setProfileState('loading');
+        }
+
         try {
-            const data = await window.afifiApi.apiRequest('/auth/me');
-            currentUser = data && data.user ? data.user : currentUser;
+            const user = await fetchAuthMe({ forceRefresh });
+            currentUser = user || currentUser;
             if (currentUser) setStoredUser(currentUser);
             if (detailsEl) detailsEl.innerHTML = renderProfileDetails(currentUser || {});
             setProfileState('ready');
+            updateAuthUI();
         } catch (error) {
+            if (error && error.status === 401) return;
             if (currentUser && detailsEl) {
                 detailsEl.innerHTML = renderProfileDetails(currentUser);
                 setProfileState('ready');
@@ -4435,7 +4499,7 @@ async function initProfilePage() {
         }
     }
 
-    if (retryBtn) retryBtn.addEventListener('click', loadProfile);
+    if (retryBtn) retryBtn.addEventListener('click', () => loadProfile({ forceRefresh: true }));
 
     if (editBtn) {
         editBtn.addEventListener('click', () => {
