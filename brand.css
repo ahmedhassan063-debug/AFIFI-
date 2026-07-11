@@ -2588,7 +2588,8 @@ body.drawer-open {
     color: #e74c3c;
 }
 
-.cart-empty {
+.cart-empty,
+.cart-loading {
     font-family: var(--font-body), sans-serif;
     color: #777;
     padding: 24px 0;
