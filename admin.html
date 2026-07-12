@@ -713,6 +713,14 @@
     </div>
 </div>
 
-<script src="admin.js?v=1.12"></script>
+<!--
+  API base URL (production / split deployment only):
+  Uncomment and set before admin.js when the Laravel API is NOT on the same origin as this site.
+  Required for static hosts such as GitHub Pages. Local dev (localhost, 127.0.0.1, file://)
+  automatically uses https://afifi-backend-production.up.railway.app/api — do not set this override locally.
+  Example:
+  <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
+-->
+<script src="admin.js?v=1.13"></script>
 </body>
 </html>

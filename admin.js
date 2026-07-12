@@ -17,14 +17,16 @@ const ADMIN_AUTH_TOKEN_KEY = 'afifiAuthToken'; // must match AUTH_TOKEN_KEY in b
 const ADMIN_USER_KEY = 'afifiUser'; // must match AUTH_USER_KEY in brand.js
 
 function adminResolveApiBaseUrl() {
-    if (window.AFIFI_API_BASE_URL) return window.AFIFI_API_BASE_URL;
+    if (window.AFIFI_API_BASE_URL) {
+        return String(window.AFIFI_API_BASE_URL).replace(/\/+$/, '');
+    }
 
-    const { protocol, hostname, origin } = window.location;
+    const { protocol, hostname } = window.location;
     const isLocalHost = protocol === 'file:' || hostname === 'localhost' || hostname === '127.0.0.1';
 
-    if (isLocalHost) return 'http://127.0.0.1:8000/api';
+    if (isLocalHost) return 'https://afifi-backend-production.up.railway.app/api';
 
-    return `${origin}/api`;
+    return 'https://afifi-backend-production.up.railway.app/api';
 }
 
 const ADMIN_API_BASE_URL = adminResolveApiBaseUrl();
