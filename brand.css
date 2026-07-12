@@ -4252,6 +4252,86 @@ body.account-sheet-open {
     color: #666;
 }
 
+.account-return-pill {
+    display: inline-block;
+    font-family: var(--font-accent), sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.account-return-type-return { background: rgba(90, 160, 220, 0.15); color: #4a8ec4; }
+.account-return-type-exchange { background: rgba(160, 120, 220, 0.15); color: #7a55b8; }
+
+.account-return-status-pending { background: rgba(203, 169, 106, 0.18); color: #9a7b3f; }
+.account-return-status-approved { background: rgba(90, 200, 130, 0.15); color: #3d9a62; }
+.account-return-status-rejected { background: rgba(224, 122, 122, 0.15); color: #c0392b; }
+.account-return-status-completed { background: rgba(90, 160, 220, 0.15); color: #4a8ec4; }
+
+.account-return-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.account-return-card {
+    border: 1px solid #eee;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: #fafafa;
+}
+
+.account-return-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.account-return-details {
+    margin: 0;
+}
+
+.account-return-form {
+    margin-top: 8px;
+    padding-top: 18px;
+    border-top: 1px solid #eee;
+}
+
+.account-return-form .auth-field + .auth-field {
+    margin-top: 14px;
+}
+
+.account-return-type-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.account-return-type-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    color: #444;
+    cursor: pointer;
+}
+
+.account-return-type-option input {
+    accent-color: var(--black);
+}
+
+.account-return-reason {
+    min-height: 96px;
+    resize: vertical;
+}
+
 .account-order-cancel-section {
     border-color: rgba(224, 122, 122, 0.35);
 }

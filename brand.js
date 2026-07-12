@@ -548,6 +548,17 @@ function upgradeStaticProductLinks() {
     });
 }
 
+function getOrderPageBase() {
+    if (window.location.protocol === 'file:') return 'order.html';
+    return /\.html$/i.test(window.location.pathname) ? 'order.html' : 'order';
+}
+
+function getOrderPageHref(orderId) {
+    if (orderId == null || orderId === '') return '';
+    const base = getOrderPageBase();
+    return `${base}?id=${encodeURIComponent(orderId)}`;
+}
+
 function getProductPageIdentifier() {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
@@ -4515,6 +4526,19 @@ const PAYMENT_RECORD_STATUS_LABELS = {
 
 const ORDER_CANCELLABLE_STATUSES = ['pending_confirmation', 'confirmed', 'processing'];
 const MANUAL_PAYMENT_PROVIDER_IDS = ['instapay', 'vodafone_cash'];
+const ACTIVE_RETURN_REQUEST_STATUSES = ['pending', 'approved', 'completed'];
+
+const RETURN_TYPE_LABELS = {
+    return: 'Return',
+    exchange: 'Exchange'
+};
+
+const RETURN_STATUS_LABELS = {
+    pending: 'Pending review',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    completed: 'Completed'
+};
 
 function formatAccountDate(value) {
     if (!value) return '—';
@@ -4570,6 +4594,139 @@ function canSubmitOrderPaymentReference(order) {
 
 function canCancelOrder(order) {
     return Boolean(order && ORDER_CANCELLABLE_STATUSES.includes(order.status));
+}
+
+function getOrderReturnRequests(order) {
+    return Array.isArray(order && order.return_requests) ? order.return_requests : [];
+}
+
+function isActiveReturnRequestStatus(status) {
+    return ACTIVE_RETURN_REQUEST_STATUSES.includes(status);
+}
+
+function itemHasActiveReturnRequest(returnRequests, orderItemId) {
+    const itemId = Number(orderItemId);
+    return returnRequests.some(request =>
+        Number(request.order_item_id) === itemId &&
+        isActiveReturnRequestStatus(request.status)
+    );
+}
+
+function getEligibleReturnItems(order) {
+    if (!order || order.status !== 'delivered') return [];
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    const returnRequests = getOrderReturnRequests(order);
+
+    return items.filter(item => item && item.id && !itemHasActiveReturnRequest(returnRequests, item.id));
+}
+
+function canShowReturnForm(order) {
+    return getEligibleReturnItems(order).length > 0;
+}
+
+function getOrderItemLabel(item) {
+    const parts = [item.product_name || 'Item'];
+    const variant = [item.color_name, item.size_name].filter(Boolean).join(' / ');
+    if (variant) parts.push(variant);
+    if (item.sku) parts.push(`SKU ${item.sku}`);
+    parts.push(`Qty ${item.quantity || 0}`);
+    return parts.filter(Boolean).join(' · ');
+}
+
+function findOrderItemById(order, orderItemId) {
+    const items = Array.isArray(order && order.items) ? order.items : [];
+    return items.find(item => Number(item.id) === Number(orderItemId)) || null;
+}
+
+function renderReturnStatusBadge(status) {
+    const safeStatus = escapeHtml(status || '');
+    const label = RETURN_STATUS_LABELS[status] || status || '—';
+    return `<span class="account-return-pill account-return-status-${safeStatus}">${escapeHtml(label)}</span>`;
+}
+
+function renderReturnTypeBadge(type) {
+    const safeType = escapeHtml(type || '');
+    const label = RETURN_TYPE_LABELS[type] || type || '—';
+    return `<span class="account-return-pill account-return-type-${safeType}">${escapeHtml(label)}</span>`;
+}
+
+function renderOrderReturnsSection(order) {
+    const returnRequests = getOrderReturnRequests(order);
+    const eligibleItems = getEligibleReturnItems(order);
+
+    const requestCards = returnRequests.map(request => {
+        const item = findOrderItemById(order, request.order_item_id);
+        const itemLabel = item ? getOrderItemLabel(item) : `Item #${request.order_item_id}`;
+        const reason = String(request.reason || '').trim();
+        const resolvedAt = request.resolved_at ? formatAccountDate(request.resolved_at) : '';
+
+        return `
+            <article class="account-return-card">
+                <div class="account-return-card-top">
+                    ${renderReturnTypeBadge(request.type)}
+                    ${renderReturnStatusBadge(request.status)}
+                </div>
+                <dl class="account-order-details account-return-details">
+                    <dt>Item</dt><dd>${escapeHtml(itemLabel)}</dd>
+                    ${reason ? `<dt>Reason</dt><dd>${escapeHtml(reason)}</dd>` : ''}
+                    <dt>Requested</dt><dd>${escapeHtml(formatAccountDate(request.requested_at))}</dd>
+                    ${resolvedAt ? `<dt>Resolved</dt><dd>${escapeHtml(resolvedAt)}</dd>` : ''}
+                </dl>
+            </article>
+        `;
+    }).join('');
+
+    const requestsHtml = returnRequests.length
+        ? `<div class="account-return-list">${requestCards}</div>`
+        : '<p class="account-order-detail-muted">No return or exchange requests yet.</p>';
+
+    const formHtml = canShowReturnForm(order) ? `
+        <form class="account-return-form" id="orderReturnForm" novalidate>
+            <p class="account-order-detail-muted">Request a return or exchange for an eligible delivered-order item.</p>
+            <div class="auth-field">
+                <label class="auth-label" for="orderReturnItem">Item</label>
+                <select class="auth-input" id="orderReturnItem" name="order_item_id" required>
+                    <option value="">Select an item</option>
+                    ${eligibleItems.map(item => `
+                        <option value="${escapeHtml(String(item.id))}">${escapeHtml(getOrderItemLabel(item))}</option>
+                    `).join('')}
+                </select>
+                <p class="checkout-field-error" id="orderReturnItemError" role="alert" hidden></p>
+            </div>
+            <div class="auth-field">
+                <span class="auth-label">Request type</span>
+                <div class="account-return-type-options">
+                    <label class="account-return-type-option">
+                        <input type="radio" name="return_type" value="return" checked>
+                        <span>Return</span>
+                    </label>
+                    <label class="account-return-type-option">
+                        <input type="radio" name="return_type" value="exchange">
+                        <span>Exchange</span>
+                    </label>
+                </div>
+                <p class="checkout-field-error" id="orderReturnTypeError" role="alert" hidden></p>
+            </div>
+            <div class="auth-field">
+                <label class="auth-label" for="orderReturnReason">Reason</label>
+                <textarea class="auth-input account-return-reason" id="orderReturnReason" name="reason" rows="4" maxlength="500" required></textarea>
+                <p class="checkout-field-error" id="orderReturnReasonError" role="alert" hidden></p>
+            </div>
+            <p class="checkout-form-message" id="orderReturnMessage" role="status" hidden></p>
+            <button type="submit" class="auth-submit" id="orderReturnSubmit">SUBMIT REQUEST</button>
+        </form>
+    ` : (order.status === 'delivered'
+        ? '<p class="account-order-detail-muted">All items on this order already have an active return or exchange request.</p>'
+        : '');
+
+    return `
+        <div class="account-order-section">
+            <h3>RETURNS</h3>
+            ${requestsHtml}
+            ${formHtml}
+        </div>
+    `;
 }
 
 function getOrderItemImageUrl(item) {
@@ -4958,7 +5115,7 @@ function renderOrderListCard(order) {
     const paymentMethod = escapeHtml(getPaymentMethodLabel(order.payment_method));
     const itemCount = getOrderItemCount(order);
     const itemLabel = `${itemCount} item${itemCount === 1 ? '' : 's'}`;
-    const href = `order.html?id=${encodeURIComponent(order.id)}`;
+    const href = getOrderPageHref(order.id);
 
     return `
         <a href="${href}" class="account-order-card">
@@ -5086,6 +5243,7 @@ function renderOrderDetailContent(order, options = {}) {
 
         ${renderOrderShipmentSection(shipment)}
         ${renderOrderStatusTimeline(statusHistory)}
+        ${renderOrderReturnsSection(order)}
         ${cancelSection}
 
         <a href="orders.html" class="story-btn account-back-link">Back to Orders</a>
@@ -5177,6 +5335,7 @@ async function initOrderDetailPage() {
     let currentOrder = null;
     let isLoading = false;
     let referenceSubmitInFlight = false;
+    let returnSubmitInFlight = false;
     let cancelSubmitInFlight = false;
     let cancelOverlay = null;
     let detailActionsWired = false;
@@ -5291,12 +5450,142 @@ async function initOrderDetailPage() {
         if (type) messageEl.classList.add(type);
     }
 
+    function showOrderReturnMessage(text, type) {
+        const messageEl = document.getElementById('orderReturnMessage');
+        if (!messageEl) return;
+        if (!text) {
+            messageEl.hidden = true;
+            messageEl.textContent = '';
+            messageEl.classList.remove('error', 'success');
+            return;
+        }
+        messageEl.hidden = false;
+        messageEl.textContent = text;
+        messageEl.classList.remove('error', 'success');
+        if (type) messageEl.classList.add(type);
+    }
+
+    function showOrderReturnFieldError(fieldId, message) {
+        const errorField = document.getElementById(fieldId);
+        const inputMap = {
+            orderReturnItemError: 'orderReturnItem',
+            orderReturnReasonError: 'orderReturnReason'
+        };
+        const input = document.getElementById(inputMap[fieldId] || '');
+        if (errorField) {
+            errorField.textContent = message || '';
+            errorField.hidden = !message;
+        }
+        if (input) input.setAttribute('aria-invalid', message ? 'true' : 'false');
+    }
+
+    function clearOrderReturnFieldErrors() {
+        ['orderReturnItemError', 'orderReturnTypeError', 'orderReturnReasonError'].forEach(fieldId => {
+            showOrderReturnFieldError(fieldId, '');
+        });
+    }
+
+    function readOrderReturnFormValues() {
+        const itemSelect = document.getElementById('orderReturnItem');
+        const typeInput = document.querySelector('#orderReturnForm input[name="return_type"]:checked');
+        const reasonInput = document.getElementById('orderReturnReason');
+        return {
+            order_item_id: itemSelect ? itemSelect.value : '',
+            type: typeInput ? typeInput.value : 'return',
+            reason: reasonInput ? reasonInput.value : ''
+        };
+    }
+
+    function mapOrderReturnApiErrors(errors) {
+        const mapped = {};
+        if (!errors || typeof errors !== 'object') return mapped;
+        Object.entries(errors).forEach(([key, value]) => {
+            const message = Array.isArray(value) ? value[0] : value;
+            if (!message) return;
+            if (key === 'order_item_id') mapped.orderReturnItemError = message;
+            else if (key === 'type') mapped.orderReturnTypeError = message;
+            else if (key === 'reason') mapped.orderReturnReasonError = message;
+        });
+        return mapped;
+    }
+
     function wireOrderDetailActions() {
         if (detailActionsWired || !contentEl) return;
         detailActionsWired = true;
         ensureCancelOverlay();
 
         contentEl.addEventListener('submit', async (event) => {
+            const returnForm = event.target.closest('#orderReturnForm');
+            if (returnForm) {
+                event.preventDefault();
+                if (returnSubmitInFlight || !currentOrder) return;
+
+                const formValues = readOrderReturnFormValues();
+                const reason = String(formValues.reason || '').trim();
+                clearOrderReturnFieldErrors();
+                showOrderReturnMessage('');
+
+                let hasClientError = false;
+                if (!formValues.order_item_id) {
+                    showOrderReturnFieldError('orderReturnItemError', 'Please select an item.');
+                    hasClientError = true;
+                }
+                if (!['return', 'exchange'].includes(formValues.type)) {
+                    showOrderReturnFieldError('orderReturnTypeError', 'Please choose a request type.');
+                    hasClientError = true;
+                }
+                if (!reason) {
+                    showOrderReturnFieldError('orderReturnReasonError', 'Reason is required.');
+                    hasClientError = true;
+                } else if (reason.length > 500) {
+                    showOrderReturnFieldError('orderReturnReasonError', 'Reason must be 500 characters or fewer.');
+                    hasClientError = true;
+                }
+                if (hasClientError) return;
+
+                const submitBtn = document.getElementById('orderReturnSubmit');
+                returnSubmitInFlight = true;
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'SUBMITTING...';
+                }
+
+                try {
+                    await window.afifiApi.apiRequest('/returns', {
+                        method: 'POST',
+                        body: {
+                            order_id: currentOrder.id,
+                            order_item_id: Number(formValues.order_item_id),
+                            type: formValues.type,
+                            reason
+                        }
+                    });
+                    await loadOrder();
+                    showOrderCancelMessage('Return request submitted successfully.', 'success');
+                } catch (error) {
+                    if (error && error.status === 401) return;
+
+                    const fieldErrors = mapOrderReturnApiErrors(error && error.errors);
+                    if (Object.keys(fieldErrors).length > 0) {
+                        Object.entries(fieldErrors).forEach(([fieldId, message]) => {
+                            showOrderReturnFieldError(fieldId, message);
+                        });
+                    } else if (error && (error.status === 403 || error.status === 404)) {
+                        showOrderReturnMessage('This order or item is not available for return requests.', 'error');
+                    } else {
+                        showOrderReturnMessage(getAuthErrorMessage(error), 'error');
+                    }
+                } finally {
+                    returnSubmitInFlight = false;
+                    const submitBtnFinal = document.getElementById('orderReturnSubmit');
+                    if (submitBtnFinal) {
+                        submitBtnFinal.disabled = false;
+                        submitBtnFinal.textContent = 'SUBMIT REQUEST';
+                    }
+                }
+                return;
+            }
+
             const form = event.target.closest('#orderReferenceForm');
             if (!form) return;
             event.preventDefault();
@@ -5770,7 +6059,7 @@ async function initCheckoutPage() {
             confirmPayment.innerHTML = renderCheckoutConfirmationPaymentDetails(order, paymentMethods);
         }
         if (orderDetailLink) {
-            orderDetailLink.href = `order.html?id=${encodeURIComponent(order.id)}`;
+            orderDetailLink.href = getOrderPageHref(order.id);
         }
 
         const pendingPayment = Array.isArray(order.payments)
