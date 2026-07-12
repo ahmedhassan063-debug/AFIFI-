@@ -4494,6 +4494,28 @@ const ORDER_STATUS_LABELS = {
     returned: 'Returned'
 };
 
+const PAYMENT_STATUS_LABELS = {
+    unpaid: 'Unpaid',
+    paid: 'Paid',
+    partially_paid: 'Partially Paid',
+    partially_refunded: 'Partially Refunded',
+    refunded: 'Refunded'
+};
+
+const PAYMENT_METHOD_LABELS = {
+    instapay: 'InstaPay',
+    vodafone_cash: 'Vodafone Cash'
+};
+
+const PAYMENT_RECORD_STATUS_LABELS = {
+    pending: 'Pending',
+    paid: 'Paid',
+    failed: 'Failed'
+};
+
+const ORDER_CANCELLABLE_STATUSES = ['pending_confirmation', 'confirmed', 'processing'];
+const MANUAL_PAYMENT_PROVIDER_IDS = ['instapay', 'vodafone_cash'];
+
 function formatAccountDate(value) {
     if (!value) return '—';
     const date = new Date(value);
@@ -4513,6 +4535,194 @@ function renderAccountStatusBadge(status) {
     const safeStatus = escapeHtml(status || '');
     const label = ORDER_STATUS_LABELS[status] || status || '—';
     return `<span class="account-status-pill account-status-${safeStatus}">${escapeHtml(label)}</span>`;
+}
+
+function renderPaymentStatusBadge(status) {
+    const safeStatus = escapeHtml(status || '');
+    const label = PAYMENT_STATUS_LABELS[status] || status || '—';
+    return `<span class="account-payment-pill account-payment-${safeStatus}">${escapeHtml(label)}</span>`;
+}
+
+function getPaymentMethodLabel(method) {
+    return PAYMENT_METHOD_LABELS[method] || method || '—';
+}
+
+function getOrderItemCount(order) {
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+}
+
+function getManualPendingPayment(order) {
+    const payments = Array.isArray(order.payments) ? order.payments : [];
+    return payments.find(payment =>
+        payment &&
+        payment.status === 'pending' &&
+        MANUAL_PAYMENT_PROVIDER_IDS.includes(payment.provider)
+    ) || null;
+}
+
+function canSubmitOrderPaymentReference(order) {
+    if (!order || order.status === 'cancelled' || order.payment_status !== 'unpaid') {
+        return false;
+    }
+    return Boolean(getManualPendingPayment(order));
+}
+
+function canCancelOrder(order) {
+    return Boolean(order && ORDER_CANCELLABLE_STATUSES.includes(order.status));
+}
+
+function getOrderItemImageUrl(item) {
+    const variant = item && item.product_variant;
+    const product = variant && variant.product;
+    if (product) return getProductImage(product);
+    return PRODUCT_PLACEHOLDER_SRC;
+}
+
+function isCustomerFacingHistoryNote(entry) {
+    if (!entry || !entry.note) return false;
+    if (entry.changed_by) return false;
+    return true;
+}
+
+function renderOrderStatusTimeline(history) {
+    const entries = Array.isArray(history) ? history.slice() : [];
+    if (!entries.length) return '';
+
+    entries.sort((a, b) => {
+        const aTime = new Date(a.created_at || 0).getTime();
+        const bTime = new Date(b.created_at || 0).getTime();
+        return aTime - bTime;
+    });
+
+    const items = entries.map(entry => {
+        const statusLabel = ORDER_STATUS_LABELS[entry.to_status] || entry.to_status || '—';
+        const note = isCustomerFacingHistoryNote(entry)
+            ? `<p class="account-order-timeline-note">${escapeHtml(entry.note)}</p>`
+            : '';
+        return `
+            <li class="account-order-timeline-item">
+                <span class="account-order-timeline-dot" aria-hidden="true"></span>
+                <div class="account-order-timeline-body">
+                    <p class="account-order-timeline-status">${escapeHtml(statusLabel)}</p>
+                    <p class="account-order-timeline-date">${escapeHtml(formatAccountDate(entry.created_at))}</p>
+                    ${note}
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    return `
+        <div class="account-order-section">
+            <h3>ORDER TIMELINE</h3>
+            <ol class="account-order-timeline">${items}</ol>
+        </div>
+    `;
+}
+
+function renderOrderShipmentSection(shipment) {
+    if (!shipment) return '';
+
+    const rows = [];
+    if (shipment.carrier) rows.push(['Carrier', shipment.carrier]);
+    if (shipment.tracking_number) rows.push(['Tracking Number', shipment.tracking_number]);
+    if (shipment.shipped_at) rows.push(['Shipped', formatAccountDate(shipment.shipped_at)]);
+    if (shipment.delivered_at) rows.push(['Delivered', formatAccountDate(shipment.delivered_at)]);
+
+    if (!rows.length) return '';
+
+    return `
+        <div class="account-order-section">
+            <h3>SHIPMENT</h3>
+            <dl class="account-order-details">
+                ${rows.map(([label, value]) => `
+                    <dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>
+                `).join('')}
+            </dl>
+        </div>
+    `;
+}
+
+function renderOrderPaymentSection(order, paymentMethods) {
+    const payments = Array.isArray(order.payments) ? order.payments : [];
+    const manualPayment = payments.find(payment =>
+        MANUAL_PAYMENT_PROVIDER_IDS.includes(payment && payment.provider)
+    ) || getManualPendingPayment(order) || payments[0] || null;
+
+    const methodLabel = getPaymentMethodLabel(order.payment_method);
+    const providerLabel = manualPayment && manualPayment.provider
+        ? getPaymentMethodLabel(manualPayment.provider)
+        : methodLabel;
+
+    const rows = [
+        ['Payment Status', PAYMENT_STATUS_LABELS[order.payment_status] || order.payment_status || '—'],
+        ['Payment Method', methodLabel]
+    ];
+
+    if (manualPayment) {
+        rows.push(['Provider', providerLabel]);
+        if (manualPayment.amount != null) {
+            rows.push(['Payment Amount', formatPrice(manualPayment.amount, manualPayment.currency || order.currency_code)]);
+        }
+        if (manualPayment.status) {
+            const recordLabel = PAYMENT_RECORD_STATUS_LABELS[manualPayment.status] || manualPayment.status;
+            rows.push(['Payment Record', recordLabel]);
+        }
+        if (manualPayment.provider_reference) {
+            rows.push(['Provider Reference', manualPayment.provider_reference]);
+        }
+        if (manualPayment.paid_at) {
+            rows.push(['Paid At', formatAccountDate(manualPayment.paid_at)]);
+        }
+    }
+
+    let statusMessage = '';
+    if (order.payment_status === 'paid') {
+        statusMessage = '<p class="account-order-payment-state account-order-payment-state-paid">Payment verified.</p>';
+    } else if (manualPayment && manualPayment.status === 'failed') {
+        statusMessage = '<p class="account-order-payment-state account-order-payment-state-failed">Payment could not be verified. Contact support if you need help.</p>';
+    } else if (order.payment_status === 'unpaid' && manualPayment) {
+        const referenceSubmitted = Boolean(manualPayment.provider_reference);
+        statusMessage = referenceSubmitted
+            ? '<p class="account-order-payment-state account-order-payment-state-pending">Awaiting payment verification.</p>'
+            : '<p class="account-order-payment-state account-order-payment-state-pending">Awaiting payment. Submit your transaction reference after transferring the order total.</p>';
+    } else if (order.payment_status === 'unpaid') {
+        statusMessage = '<p class="account-order-payment-state account-order-payment-state-pending">Awaiting payment.</p>';
+    }
+
+    const methodConfig = (paymentMethods || []).find(item => item.id === order.payment_method) || null;
+    const instructions = renderCheckoutPaymentInstructions(methodConfig);
+    const instructionsHtml = instructions
+        ? `<div class="account-order-payment-instructions">${instructions}</div>`
+        : '';
+
+    const canSubmitReference = canSubmitOrderPaymentReference(order);
+    const referenceForm = canSubmitReference ? `
+        <form class="checkout-reference-form account-order-reference-form" id="orderReferenceForm" novalidate>
+            <p class="checkout-reference-help">Enter the transaction reference from your ${escapeHtml(providerLabel)} transfer.</p>
+            <div class="auth-field">
+                <label class="auth-label" for="orderReferenceInput">Transaction Reference</label>
+                <input class="auth-input" type="text" id="orderReferenceInput" name="provider_reference" minlength="3" maxlength="255" required value="${escapeHtml((manualPayment && manualPayment.provider_reference) || '')}">
+                <p class="checkout-field-error" id="orderReferenceError" role="alert" hidden></p>
+            </div>
+            <p class="checkout-form-message" id="orderReferenceMessage" role="status" hidden></p>
+            <button type="submit" class="auth-submit" id="orderReferenceSubmit">${manualPayment && manualPayment.provider_reference ? 'UPDATE REFERENCE' : 'SUBMIT REFERENCE'}</button>
+        </form>
+    ` : '';
+
+    return `
+        <div class="account-order-section">
+            <h3>PAYMENT</h3>
+            ${statusMessage}
+            <dl class="account-order-details">
+                ${rows.map(([label, value]) => `
+                    <dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>
+                `).join('')}
+            </dl>
+            ${instructionsHtml}
+            ${referenceForm}
+        </div>
+    `;
 }
 
 function guardAccountPage() {
@@ -4744,6 +4954,10 @@ function renderOrderListCard(order) {
     const date = formatAccountDate(order.created_at);
     const total = formatPrice(order.grand_total, order.currency_code);
     const statusBadge = renderAccountStatusBadge(order.status);
+    const paymentBadge = renderPaymentStatusBadge(order.payment_status);
+    const paymentMethod = escapeHtml(getPaymentMethodLabel(order.payment_method));
+    const itemCount = getOrderItemCount(order);
+    const itemLabel = `${itemCount} item${itemCount === 1 ? '' : 's'}`;
     const href = `order.html?id=${encodeURIComponent(order.id)}`;
 
     return `
@@ -4754,6 +4968,10 @@ function renderOrderListCard(order) {
             </div>
             <div class="account-order-meta">
                 <span>${escapeHtml(date)}</span>
+                <span>${escapeHtml(itemLabel)}</span>
+            </div>
+            <div class="account-order-card-bottom">
+                <span class="account-order-card-payment">${paymentMethod} · ${paymentBadge}</span>
                 <span class="account-order-total">${escapeHtml(total)}</span>
             </div>
         </a>
@@ -4772,19 +4990,34 @@ function formatAddressBlock(address) {
     return `<p class="account-address-block">${parts.map(part => escapeHtml(part)).join('<br>')}</p>`;
 }
 
-function renderOrderDetailContent(order) {
+function renderOrderDetailContent(order, options = {}) {
+    const paymentMethods = options.paymentMethods || [];
     const orderNumber = escapeHtml(order.order_number || `#${order.id}`);
     const items = Array.isArray(order.items) ? order.items : [];
     const addresses = Array.isArray(order.addresses) ? order.addresses : [];
     const shippingAddress = addresses.find(a => a.type === 'shipping') || addresses[0] || null;
+    const statusHistory = Array.isArray(order.status_history) ? order.status_history : [];
+    const shipment = order.shipment && typeof order.shipment === 'object' ? order.shipment : null;
 
     const itemRows = items.map(item => {
         const variant = [item.color_name, item.size_name].filter(Boolean).join(' / ');
+        const unitPrice = formatPrice(item.unit_price, order.currency_code);
         const lineTotal = formatPrice(item.line_total, order.currency_code);
+        const imageUrl = escapeHtml(getOrderItemImageUrl(item));
+        const productName = escapeHtml(item.product_name || '—');
         return `
             <tr>
-                <td data-label="Product">${escapeHtml(item.product_name || '—')}${variant ? `<br><small>${escapeHtml(variant)}</small>` : ''}</td>
+                <td data-label="Product">
+                    <div class="account-order-item-product">
+                        <img class="account-order-item-thumb" src="${imageUrl}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${PRODUCT_PLACEHOLDER_SRC}'">
+                        <div>
+                            <span>${productName}</span>
+                            ${variant ? `<br><small>${escapeHtml(variant)}</small>` : ''}
+                        </div>
+                    </div>
+                </td>
                 <td data-label="Qty">${escapeHtml(String(item.quantity || 0))}</td>
+                <td data-label="Unit Price">${escapeHtml(unitPrice)}</td>
                 <td data-label="Total">${escapeHtml(lineTotal)}</td>
             </tr>
         `;
@@ -4800,18 +5033,30 @@ function renderOrderDetailContent(order) {
         .map(([label, amount]) => `<li><span>${label}</span><span>${escapeHtml(formatPrice(amount, order.currency_code))}</span></li>`)
         .join('');
 
+    const customerNotes = String(order.customer_notes || '').trim();
+    const cancelSection = canCancelOrder(order) ? `
+        <div class="account-order-section account-order-cancel-section">
+            <h3>CANCEL ORDER</h3>
+            <p class="account-order-detail-muted">You can cancel this order before it ships. Inventory will be released after cancellation.</p>
+            <button type="button" class="account-order-cancel-btn" id="orderCancelBtn">Cancel Order</button>
+        </div>
+    ` : '';
+
     return `
         <div class="account-order-detail-header">
             <h2>${orderNumber}</h2>
             ${renderAccountStatusBadge(order.status)}
+            ${renderPaymentStatusBadge(order.payment_status)}
             <span class="account-order-detail-muted">Placed ${escapeHtml(formatAccountDate(order.created_at))}</span>
         </div>
+
+        ${renderOrderPaymentSection(order, paymentMethods)}
 
         <div class="account-order-section">
             <h3>ITEMS</h3>
             ${items.length ? `
                 <table class="account-order-items">
-                    <thead><tr><th>Product</th><th>Qty</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
                     <tbody>${itemRows}</tbody>
                 </table>
             ` : '<p class="account-order-detail-muted">No items found for this order.</p>'}
@@ -4831,6 +5076,17 @@ function renderOrderDetailContent(order) {
                 ${formatAddressBlock(shippingAddress)}
             </div>
         ` : ''}
+
+        ${customerNotes ? `
+            <div class="account-order-section">
+                <h3>ORDER NOTES</h3>
+                <p class="account-address-block">${escapeHtml(customerNotes)}</p>
+            </div>
+        ` : ''}
+
+        ${renderOrderShipmentSection(shipment)}
+        ${renderOrderStatusTimeline(statusHistory)}
+        ${cancelSection}
 
         <a href="orders.html" class="story-btn account-back-link">Back to Orders</a>
     `;
@@ -4918,6 +5174,13 @@ async function initOrderDetailPage() {
     const retryBtn = document.getElementById('orderRetry');
     const breadcrumbEl = document.getElementById('orderBreadcrumb');
 
+    let currentOrder = null;
+    let isLoading = false;
+    let referenceSubmitInFlight = false;
+    let cancelSubmitInFlight = false;
+    let cancelOverlay = null;
+    let detailActionsWired = false;
+
     function setOrderState(state) {
         setAccountViewState({
             loading: loadingEl,
@@ -4926,7 +5189,191 @@ async function initOrderDetailPage() {
         }, state);
     }
 
+    function ensureCancelOverlay() {
+        if (cancelOverlay) return cancelOverlay;
+
+        cancelOverlay = document.createElement('div');
+        cancelOverlay.className = 'account-form-overlay';
+        cancelOverlay.id = 'orderCancelOverlay';
+        cancelOverlay.hidden = true;
+        cancelOverlay.innerHTML = `
+            <div class="account-form-dialog" role="dialog" aria-labelledby="orderCancelDialogTitle" aria-modal="true">
+                <button type="button" class="account-form-close" id="orderCancelClose" aria-label="Close">&times;</button>
+                <h2 class="account-form-title" id="orderCancelDialogTitle">Cancel Order</h2>
+                <p class="account-order-detail-muted">This cannot be undone. Your order will be marked as cancelled.</p>
+                <div class="account-form-actions">
+                    <button type="button" class="story-btn account-order-cancel-confirm" id="orderCancelConfirm">Yes, Cancel Order</button>
+                    <button type="button" class="account-order-cancel-dismiss" id="orderCancelDismiss">Keep Order</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(cancelOverlay);
+        wireAccountFormOverlay(cancelOverlay, cancelOverlay.querySelector('#orderCancelClose'));
+
+        const cancelConfirm = cancelOverlay.querySelector('#orderCancelConfirm');
+        const cancelDismiss = cancelOverlay.querySelector('#orderCancelDismiss');
+
+        if (cancelDismiss) {
+            cancelDismiss.addEventListener('click', () => {
+                cancelOverlay.hidden = true;
+            });
+        }
+
+        if (cancelConfirm) {
+            cancelConfirm.addEventListener('click', async () => {
+                if (cancelSubmitInFlight || !currentOrder) return;
+
+                cancelSubmitInFlight = true;
+                cancelConfirm.disabled = true;
+                cancelConfirm.textContent = 'CANCELLING...';
+                showOrderCancelMessage('');
+
+                try {
+                    const response = await window.afifiApi.apiRequest(
+                        `/orders/${encodeURIComponent(currentOrder.id)}/cancel`,
+                        { method: 'POST' }
+                    );
+                    cancelOverlay.hidden = true;
+                    await loadOrder();
+                    showOrderCancelMessage(response.message || 'Order cancelled successfully.', 'success');
+                } catch (error) {
+                    if (error && error.status === 401) return;
+                    cancelOverlay.hidden = true;
+                    showOrderCancelMessage(getAuthErrorMessage(error), 'error');
+                } finally {
+                    cancelSubmitInFlight = false;
+                    cancelConfirm.disabled = false;
+                    cancelConfirm.textContent = 'Yes, Cancel Order';
+                }
+            });
+        }
+
+        return cancelOverlay;
+    }
+
+    function showOrderReferenceMessage(text, type) {
+        const messageEl = document.getElementById('orderReferenceMessage');
+        if (!messageEl) return;
+        if (!text) {
+            messageEl.hidden = true;
+            messageEl.textContent = '';
+            messageEl.classList.remove('error', 'success');
+            return;
+        }
+        messageEl.hidden = false;
+        messageEl.textContent = text;
+        messageEl.classList.remove('error', 'success');
+        if (type) messageEl.classList.add(type);
+    }
+
+    function showOrderReferenceFieldError(message) {
+        const errorField = document.getElementById('orderReferenceError');
+        const input = document.getElementById('orderReferenceInput');
+        if (errorField) {
+            errorField.textContent = message || '';
+            errorField.hidden = !message;
+        }
+        if (input) input.setAttribute('aria-invalid', message ? 'true' : 'false');
+    }
+
+    function showOrderCancelMessage(text, type) {
+        const messageEl = document.getElementById('orderPageMessage');
+        if (!messageEl) return;
+        if (!text) {
+            messageEl.hidden = true;
+            messageEl.textContent = '';
+            messageEl.classList.remove('error', 'success');
+            return;
+        }
+        messageEl.hidden = false;
+        messageEl.textContent = text;
+        messageEl.classList.remove('error', 'success');
+        if (type) messageEl.classList.add(type);
+    }
+
+    function wireOrderDetailActions() {
+        if (detailActionsWired || !contentEl) return;
+        detailActionsWired = true;
+        ensureCancelOverlay();
+
+        contentEl.addEventListener('submit', async (event) => {
+            const form = event.target.closest('#orderReferenceForm');
+            if (!form) return;
+            event.preventDefault();
+            if (referenceSubmitInFlight || !currentOrder) return;
+
+            const referenceInput = document.getElementById('orderReferenceInput');
+            const referenceSubmit = document.getElementById('orderReferenceSubmit');
+            const reference = String(referenceInput ? referenceInput.value : '').trim();
+            showOrderReferenceFieldError('');
+            showOrderReferenceMessage('');
+
+            if (reference.length < 3) {
+                showOrderReferenceFieldError('Reference must be at least 3 characters.');
+                return;
+            }
+
+            referenceSubmitInFlight = true;
+            if (referenceSubmit) {
+                referenceSubmit.disabled = true;
+                referenceSubmit.textContent = 'SUBMITTING...';
+            }
+
+            try {
+                const response = await window.afifiApi.apiRequest(
+                    `/orders/${encodeURIComponent(currentOrder.id)}/payment-reference`,
+                    {
+                        method: 'PUT',
+                        body: { provider_reference: reference }
+                    }
+                );
+                await loadOrder();
+                showOrderReferenceMessage(response.message || 'Payment reference submitted successfully.', 'success');
+            } catch (error) {
+                if (error && error.status === 401) return;
+                if (error && error.errors && error.errors.provider_reference) {
+                    const msg = Array.isArray(error.errors.provider_reference)
+                        ? error.errors.provider_reference[0]
+                        : error.errors.provider_reference;
+                    showOrderReferenceFieldError(msg);
+                } else {
+                    showOrderReferenceMessage(getAuthErrorMessage(error), 'error');
+                }
+            } finally {
+                referenceSubmitInFlight = false;
+                const submitBtn = document.getElementById('orderReferenceSubmit');
+                const input = document.getElementById('orderReferenceInput');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = (input && input.value) ? 'UPDATE REFERENCE' : 'SUBMIT REFERENCE';
+                }
+            }
+        });
+
+        contentEl.addEventListener('click', (event) => {
+            const cancelBtn = event.target.closest('#orderCancelBtn');
+            if (!cancelBtn) return;
+            showOrderCancelMessage('');
+            ensureCancelOverlay().hidden = false;
+        });
+    }
+
+    function renderCurrentOrder() {
+        if (!currentOrder || !contentEl) return;
+        const paymentMethods = parseManualPaymentMethods(window.afifiSettings || {});
+        contentEl.innerHTML = renderOrderDetailContent(currentOrder, { paymentMethods });
+    }
+
+    async function ensurePublicSettingsForOrder() {
+        if (Object.keys(window.afifiSettings || {}).length > 0) {
+            return window.afifiSettings;
+        }
+        return loadPublicSettings();
+    }
+
     async function loadOrder() {
+        if (isLoading) return;
+
         if (!orderId) {
             if (errorTitle) errorTitle.textContent = 'Order not found';
             if (errorText) errorText.textContent = 'No order was specified. Go back to your order history.';
@@ -4935,18 +5382,25 @@ async function initOrderDetailPage() {
             return;
         }
 
+        isLoading = true;
         setOrderState('loading');
         if (retryBtn) retryBtn.hidden = false;
 
         try {
-            const data = await window.afifiApi.apiRequest(`/orders/${encodeURIComponent(orderId)}`);
+            const [data] = await Promise.all([
+                window.afifiApi.apiRequest(`/orders/${encodeURIComponent(orderId)}`),
+                ensurePublicSettingsForOrder()
+            ]);
             const order = data && data.data ? data.data : data;
             if (!order || !order.id) throw new Error('Order not found');
 
-            if (contentEl) contentEl.innerHTML = renderOrderDetailContent(order);
+            currentOrder = order;
+            wireOrderDetailActions();
+            renderCurrentOrder();
             if (breadcrumbEl) breadcrumbEl.textContent = order.order_number || `#${order.id}`;
             setOrderState('ready');
         } catch (error) {
+            if (error && error.status === 401) return;
             if (errorTitle) {
                 errorTitle.textContent = error.status === 404 ? 'Order not found' : 'Unable to load order';
             }
@@ -4956,10 +5410,12 @@ async function initOrderDetailPage() {
                     : 'We couldn\'t reach the server. Please try again.';
             }
             setOrderState('error');
+        } finally {
+            isLoading = false;
         }
     }
 
-    if (retryBtn) retryBtn.addEventListener('click', loadOrder);
+    if (retryBtn) retryBtn.addEventListener('click', () => loadOrder());
     await loadOrder();
 }
 
@@ -4988,19 +5444,6 @@ const CHECKOUT_GOVERNORATES = [
     { name: 'Luxor', zone: 'upper_egypt' },
     { name: 'Aswan', zone: 'upper_egypt' }
 ];
-
-const PAYMENT_STATUS_LABELS = {
-    unpaid: 'Unpaid',
-    paid: 'Paid',
-    partially_paid: 'Partially Paid',
-    partially_refunded: 'Partially Refunded',
-    refunded: 'Refunded'
-};
-
-const PAYMENT_METHOD_LABELS = {
-    instapay: 'InstaPay',
-    vodafone_cash: 'Vodafone Cash'
-};
 
 function parseManualPaymentMethods(settings) {
     const methods = [];

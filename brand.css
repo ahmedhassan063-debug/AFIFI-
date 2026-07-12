@@ -4081,11 +4081,231 @@ body.account-sheet-open {
 
 .account-order-meta {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px 20px;
+    gap: 8px 12px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.account-order-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 13px;
+}
+
+.account-order-card-payment {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    color: #666;
+}
+
+.account-payment-pill {
+    display: inline-block;
+    font-family: var(--font-accent), sans-serif;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.account-payment-unpaid { background: rgba(203, 169, 106, 0.18); color: #9a7b3f; }
+.account-payment-paid { background: rgba(90, 200, 130, 0.15); color: #3d9a62; }
+.account-payment-partially_paid { background: rgba(90, 160, 220, 0.15); color: #4a8ec4; }
+.account-payment-partially_refunded { background: rgba(160, 120, 220, 0.15); color: #7a55b8; }
+.account-payment-refunded { background: rgba(224, 122, 122, 0.15); color: #c0392b; }
+
+.account-order-details {
+    display: grid;
+    grid-template-columns: minmax(120px, 34%) 1fr;
+    gap: 8px 16px;
+    margin: 0;
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+}
+
+.account-order-details dt {
+    margin: 0;
+    color: #888;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.account-order-details dd {
+    margin: 0;
+    color: var(--black);
+    word-break: break-word;
+}
+
+.account-order-payment-state {
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    margin: 0 0 14px 0;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+}
+
+.account-order-payment-state-pending {
+    background: rgba(203, 169, 106, 0.12);
+    color: #7a6230;
+}
+
+.account-order-payment-state-paid {
+    background: rgba(90, 200, 130, 0.12);
+    color: #2f7a4d;
+}
+
+.account-order-payment-state-failed {
+    background: rgba(224, 122, 122, 0.12);
+    color: #a83228;
+}
+
+.account-order-payment-instructions {
+    margin-top: 14px;
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+}
+
+.account-order-reference-form {
+    margin-top: 16px;
+}
+
+.account-order-item-product {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.account-order-item-thumb {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    flex-shrink: 0;
+    background: #f7f7f7;
+}
+
+.account-order-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.account-order-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    padding: 0 0 18px 0;
+}
+
+.account-order-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 14px;
+    bottom: 0;
+    width: 2px;
+    background: #e8e8e8;
+}
+
+.account-order-timeline-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.account-order-timeline-status {
+    margin: 0;
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--black);
+}
+
+.account-order-timeline-date {
+    margin: 4px 0 0 0;
+    font-family: var(--font-body), sans-serif;
+    font-size: 12px;
+    color: #888;
+}
+
+.account-order-timeline-note {
+    margin: 6px 0 0 0;
     font-family: var(--font-body), sans-serif;
     font-size: 13px;
     color: #666;
+}
+
+.account-order-cancel-section {
+    border-color: rgba(224, 122, 122, 0.35);
+}
+
+.account-order-cancel-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 10px 18px;
+    border: 1px solid rgba(224, 122, 122, 0.5);
+    background: transparent;
+    color: #c0392b;
+    font-family: var(--font-accent), sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: var(--radius);
+}
+
+.account-order-cancel-btn:hover,
+.account-order-cancel-btn:focus-visible {
+    background: rgba(224, 122, 122, 0.08);
+    outline: none;
+}
+
+.account-order-cancel-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.account-form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.account-order-cancel-dismiss {
+    padding: 10px 18px;
+    border: none;
+    background: transparent;
+    color: #666;
+    font-family: var(--font-body), sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.account-order-cancel-dismiss:hover,
+.account-order-cancel-dismiss:focus-visible {
+    color: var(--black);
+    outline: none;
+}
+
+.account-order-page-message {
+    margin-bottom: 16px;
 }
 
 .account-order-total {
