@@ -559,6 +559,17 @@ function getOrderPageHref(orderId) {
     return `${base}?id=${encodeURIComponent(orderId)}`;
 }
 
+function getCheckoutPageBase() {
+    if (window.location.protocol === 'file:') return 'checkout.html';
+    return /\.html$/i.test(window.location.pathname) ? 'checkout.html' : 'checkout';
+}
+
+function getCheckoutPageHref(orderId) {
+    if (orderId == null || orderId === '') return '';
+    const base = getCheckoutPageBase();
+    return `${base}?order=${encodeURIComponent(orderId)}`;
+}
+
 function getProductPageIdentifier() {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
@@ -4890,6 +4901,11 @@ function guardAccountPage() {
     return true;
 }
 
+function handleProtectedPageUnauthorized(clearView) {
+    if (typeof clearView === 'function') clearView();
+    guardAccountPage();
+}
+
 function showAccountFormMessage(el, text, type) {
     if (!el) return;
     if (!text) {
@@ -5689,7 +5705,12 @@ async function initOrderDetailPage() {
             if (breadcrumbEl) breadcrumbEl.textContent = order.order_number || `#${order.id}`;
             setOrderState('ready');
         } catch (error) {
-            if (error && error.status === 401) return;
+            if (error && error.status === 401) {
+                handleProtectedPageUnauthorized(() => {
+                    setAccountViewState({ loading: loadingEl, error: errorEl, content: contentEl }, 'none');
+                });
+                return;
+            }
             if (errorTitle) {
                 errorTitle.textContent = error.status === 404 ? 'Order not found' : 'Unable to load order';
             }
@@ -6073,7 +6094,7 @@ async function initCheckoutPage() {
 
         setCheckoutView('confirm');
         if (typeof history !== 'undefined' && history.replaceState) {
-            history.replaceState({ checkoutOrderId: order.id }, '', `checkout.html?order=${encodeURIComponent(order.id)}`);
+            history.replaceState({ checkoutOrderId: order.id }, '', getCheckoutPageHref(order.id));
         }
     }
 
@@ -6138,7 +6159,10 @@ async function initCheckoutPage() {
             renderPaymentMethodOptions(paymentMethods);
             setCheckoutView('form');
         } catch (error) {
-            if (error && error.status === 401) return;
+            if (error && error.status === 401) {
+                handleProtectedPageUnauthorized(() => setCheckoutView('none'));
+                return;
+            }
             if (errorTitle) {
                 errorTitle.textContent = error && error.status === 0 ? 'Connection problem' : 'Unable to load checkout';
             }
@@ -6159,7 +6183,10 @@ async function initCheckoutPage() {
             if (!order || !order.id) throw new Error('Order not found');
             showConfirmationForOrder(order);
         } catch (error) {
-            if (error && error.status === 401) return;
+            if (error && error.status === 401) {
+                handleProtectedPageUnauthorized(() => setCheckoutView('none'));
+                return;
+            }
             if (errorTitle) {
                 errorTitle.textContent = error.status === 404 ? 'Order not found' : 'Unable to load order';
             }
