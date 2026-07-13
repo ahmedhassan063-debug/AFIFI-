@@ -1175,6 +1175,87 @@ button {
     resize: vertical;
 }
 
+.admin-card-link {
+    cursor: pointer;
+}
+
+.admin-card-link:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.admin-return-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.admin-return-card {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: var(--admin-panel-alt);
+}
+
+.admin-return-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.admin-return-update-form {
+    margin-top: 12px;
+}
+
+.admin-return-form-error {
+    margin-top: 8px;
+    color: var(--admin-danger);
+    font-size: 13px;
+}
+
+.admin-refund-balance-summary {
+    margin-bottom: 12px;
+}
+
+.admin-refund-table-wrap {
+    margin-top: 12px;
+}
+
+.admin-refund-create-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.admin-refund-create-form {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: var(--admin-panel-alt);
+}
+
+.admin-refund-create-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.admin-refund-form-error {
+    margin-top: 8px;
+    color: var(--admin-danger);
+    font-size: 13px;
+}
+
+.admin-pill-refund-pending { background: rgba(203, 169, 106, 0.15); color: var(--gold); }
+.admin-pill-refund-processed { background: rgba(90, 200, 130, 0.15); color: #6fd190; }
+.admin-pill-refund-failed { background: rgba(224, 122, 122, 0.15); color: var(--admin-danger); }
+
 .admin-pill-status-pending_confirmation { background: rgba(203, 169, 106, 0.15); color: var(--gold); }
 .admin-pill-status-confirmed { background: rgba(90, 160, 220, 0.15); color: #7fb8ee; }
 .admin-pill-status-processing { background: rgba(90, 160, 220, 0.15); color: #7fb8ee; }

@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin.css?v=1.12">
+    <link rel="stylesheet" href="admin.css?v=1.14">
     <title>AFIFI | ADMIN DASHBOARD</title>
 </head>
 <body class="admin-body">
@@ -246,14 +246,16 @@
                                 <th scope="col">Customer</th>
                                 <th scope="col">Date</th>
                                 <th scope="col">Total</th>
+                                <th scope="col">Items</th>
                                 <th scope="col">Payment</th>
-                                <th scope="col">Status</th>
+                                <th scope="col">Pay Status</th>
+                                <th scope="col">Order Status</th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ordersTableBody">
                             <tr class="admin-table-message-row">
-                                <td colspan="7">Loading orders…</td>
+                                <td colspan="9">Loading orders…</td>
                             </tr>
                         </tbody>
                     </table>
@@ -721,6 +723,6 @@
   Example:
   <script>window.AFIFI_API_BASE_URL = 'https://api.yourdomain.com/api';</script>
 -->
-<script src="admin.js?v=1.13"></script>
+<script src="admin.js?v=1.15"></script>
 </body>
 </html>

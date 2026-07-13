@@ -316,6 +316,22 @@ if (dashboardResetRangeBtn) {
     });
 }
 
+const dashboardReturnsCard = document.querySelector('[data-card="returns"]');
+if (dashboardReturnsCard) {
+    dashboardReturnsCard.classList.add('admin-card-link');
+    dashboardReturnsCard.setAttribute('role', 'button');
+    dashboardReturnsCard.setAttribute('tabindex', '0');
+    dashboardReturnsCard.setAttribute('aria-label', 'View orders to manage return requests');
+    const goToOrders = () => switchAdminSection('orders');
+    dashboardReturnsCard.addEventListener('click', goToOrders);
+    dashboardReturnsCard.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            goToOrders();
+        }
+    });
+}
+
 // ========== AUTH GUARD ==========
 async function initAdminAuth() {
     const token = adminGetToken();
@@ -887,6 +903,47 @@ const PAYMENT_STATUS_LABELS = {
     refunded: 'Refunded'
 };
 
+const PAYMENT_RECORD_STATUS_LABELS = {
+    pending: 'Pending',
+    paid: 'Paid',
+    failed: 'Failed'
+};
+
+const MANUAL_PAYMENT_PROVIDER_IDS = ['instapay', 'vodafone_cash'];
+
+const RETURN_TYPE_LABELS = {
+    return: 'Return',
+    exchange: 'Exchange'
+};
+
+const RETURN_STATUS_LABELS = {
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    completed: 'Completed'
+};
+
+const RETURN_STATUS_TRANSITIONS = {
+    pending: ['approved', 'rejected'],
+    approved: ['completed', 'rejected'],
+    rejected: [],
+    completed: []
+};
+
+const REFUND_STATUS_LABELS = {
+    pending: 'Pending',
+    processed: 'Processed',
+    failed: 'Failed'
+};
+
+const REFUND_STATUS_TRANSITIONS = {
+    pending: ['processed', 'failed'],
+    processed: [],
+    failed: []
+};
+
+const FINAL_PAYMENT_RECORD_STATUSES = ['paid', 'failed'];
+
 const orderSearchInput = document.getElementById('orderSearchInput');
 const orderStatusFilter = document.getElementById('orderStatusFilter');
 const orderPaymentStatusFilter = document.getElementById('orderPaymentStatusFilter');
@@ -900,6 +957,11 @@ const orderDetailBody = document.getElementById('orderDetailBody');
 let adminOrdersCache = null; // null = never successfully loaded yet
 let adminOrdersLoading = false;
 let orderStatusUpdateSubmitting = false;
+let orderDetailLoading = false;
+const paymentUpdateInFlight = new Set();
+const returnUpdateInFlight = new Set();
+const refundCreateInFlight = new Set();
+const refundStatusUpdateInFlight = new Set();
 
 function setOrdersToolbarEnabled(enabled) {
     if (orderSearchInput) orderSearchInput.disabled = !enabled;
@@ -909,14 +971,14 @@ function setOrdersToolbarEnabled(enabled) {
 
 function renderOrdersTableMessage(message) {
     if (!ordersTableBody) return;
-    ordersTableBody.innerHTML = `<tr class="admin-table-message-row"><td colspan="7">${adminEscapeHtml(message)}</td></tr>`;
+    ordersTableBody.innerHTML = `<tr class="admin-table-message-row"><td colspan="9">${adminEscapeHtml(message)}</td></tr>`;
 }
 
 function renderOrdersTableError(message, onRetry) {
     if (!ordersTableBody) return;
     ordersTableBody.innerHTML = `
         <tr class="admin-table-message-row is-error">
-            <td colspan="7">
+            <td colspan="9">
                 ${adminEscapeHtml(message)}
                 <button type="button" class="admin-inline-retry-btn" id="ordersRetryBtn">Retry</button>
             </td>
@@ -1011,6 +1073,97 @@ function formatOrderDate(value) {
     return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function formatOrderMoney(value, currencyCode) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '—';
+    const code = currencyCode || 'EGP';
+    return `${num.toLocaleString()} ${adminEscapeHtml(code)}`;
+}
+
+function moneyToMinorUnits(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    return Math.round(num * 100);
+}
+
+function minorUnitsToMoney(minorUnits) {
+    return Math.max(0, minorUnits) / 100;
+}
+
+function formatOrderMoneyFromMinor(minorUnits, currencyCode) {
+    return formatOrderMoney(minorUnitsToMoney(minorUnits), currencyCode);
+}
+
+function roundMoneyAmount(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num * 100) / 100;
+}
+
+function getOrderRefundBalance(order) {
+    const payments = Array.isArray(order && order.payments) ? order.payments : [];
+    const refunds = Array.isArray(order && order.refunds) ? order.refunds : [];
+
+    const paidMinor = payments
+        .filter(payment => payment && payment.status === 'paid')
+        .reduce((sum, payment) => sum + moneyToMinorUnits(payment.amount), 0);
+
+    const reservedMinor = refunds
+        .filter(refund => refund && (refund.status === 'pending' || refund.status === 'processed'))
+        .reduce((sum, refund) => sum + moneyToMinorUnits(refund.amount), 0);
+
+    return {
+        paidMinor,
+        reservedMinor,
+        availableMinor: Math.max(0, paidMinor - reservedMinor)
+    };
+}
+
+function findOrderPaymentById(order, paymentId) {
+    const payments = Array.isArray(order && order.payments) ? order.payments : [];
+    return payments.find(payment => Number(payment.id) === Number(paymentId)) || null;
+}
+
+function getRefundPaymentProvider(refund, order) {
+    if (refund && refund.payment && refund.payment.provider) {
+        return refund.payment.provider;
+    }
+    const payment = findOrderPaymentById(order, refund && refund.payment_id);
+    return payment ? payment.provider : null;
+}
+
+function getOrderItemCount(order) {
+    const items = Array.isArray(order && order.items) ? order.items : [];
+    return items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+}
+
+function getOrderPaymentMethodDisplay(order) {
+    const method = order && order.payment_method;
+    if (!method) return '—';
+    const payments = Array.isArray(order.payments) ? order.payments : [];
+    const provider = payments.find(p => p && p.provider)?.provider;
+    if (provider && provider !== method) {
+        return `${method} · ${provider}`;
+    }
+    return String(method);
+}
+
+function findOrderItemById(order, orderItemId) {
+    const items = Array.isArray(order && order.items) ? order.items : [];
+    return items.find(item => Number(item.id) === Number(orderItemId)) || null;
+}
+
+function getReturnItemLabel(order, returnRequest) {
+    const item = returnRequest.order_item || findOrderItemById(order, returnRequest.order_item_id);
+    if (!item) return `Item #${returnRequest.order_item_id}`;
+    const parts = [item.product_name || 'Item'];
+    const variant = [item.color_name, item.size_name].filter(Boolean).join(' / ');
+    if (variant) parts.push(variant);
+    if (item.sku) parts.push(`SKU ${item.sku}`);
+    parts.push(`Qty ${item.quantity || 0}`);
+    return parts.filter(Boolean).join(' · ');
+}
+
 function renderOrderStatusPill(status) {
     const label = ORDER_STATUS_LABELS[status] || status || '—';
     return `<span class="admin-pill admin-pill-status-${adminEscapeHtml(status || '')}">${adminEscapeHtml(label)}</span>`;
@@ -1025,7 +1178,9 @@ function renderOrderRow(order) {
     const customer = adminEscapeHtml(getOrderCustomerDisplay(order));
     const orderNumber = adminEscapeHtml(order.order_number || `#${order.id}`);
     const date = formatOrderDate(order.created_at);
-    const total = adminFormatPrice(order.grand_total);
+    const total = formatOrderMoney(order.grand_total, order.currency_code);
+    const itemCount = getOrderItemCount(order);
+    const paymentMethod = adminEscapeHtml(getOrderPaymentMethodDisplay(order));
 
     return `
         <tr>
@@ -1033,6 +1188,8 @@ function renderOrderRow(order) {
             <td>${customer}</td>
             <td>${date}</td>
             <td>${total}</td>
+            <td>${itemCount}</td>
+            <td>${paymentMethod}</td>
             <td>${renderPaymentStatusPill(order.payment_status)}</td>
             <td>${renderOrderStatusPill(order.status)}</td>
             <td>
@@ -1092,7 +1249,7 @@ if (orderPaymentStatusFilter) {
 // ---- Order detail modal ----
 
 function closeOrderDetail() {
-    if (orderStatusUpdateSubmitting) return;
+    if (orderStatusUpdateSubmitting || orderDetailLoading) return;
     if (orderDetailOverlay) orderDetailOverlay.hidden = true;
 }
 
@@ -1151,29 +1308,222 @@ function renderOrderItemsTable(items) {
     `;
 }
 
-function renderPaymentsList(payments) {
-    const list = Array.isArray(payments) ? payments : [];
-    if (list.length === 0) return '<p class="admin-table-muted">No payment records yet.</p>';
+function renderPaymentsList(order) {
+    const payments = Array.isArray(order && order.payments) ? order.payments : [];
+    const orderPaymentStatus = order ? order.payment_status : null;
+
+    if (payments.length === 0) {
+        return '<p class="admin-table-muted">No payment records yet.</p>';
+    }
+
+    const rows = payments.map(payment => {
+        const isManual = MANUAL_PAYMENT_PROVIDER_IDS.includes(payment.provider);
+        const isPending = payment.status === 'pending';
+        const isFinal = FINAL_PAYMENT_RECORD_STATUSES.includes(payment.status);
+        const statusLabel = PAYMENT_RECORD_STATUS_LABELS[payment.status] || payment.status || '—';
+        const showActions = isManual && isPending && !isFinal;
+
+        return `
+            <tr>
+                <td>${adminEscapeHtml(payment.provider || '—')}</td>
+                <td>${adminEscapeHtml(payment.provider_reference || '—')}</td>
+                <td>${formatOrderMoney(payment.amount, payment.currency || order.currency_code)}</td>
+                <td>${adminEscapeHtml(statusLabel)}</td>
+                <td>${formatOrderDate(payment.paid_at)}</td>
+                <td>
+                    ${showActions ? `
+                        <div class="admin-row-actions">
+                            <button type="button" class="admin-action-btn" data-action="mark-payment-paid" data-payment-id="${payment.id}" data-order-id="${order.id}">Mark Paid</button>
+                            <button type="button" class="admin-action-btn admin-action-danger" data-action="mark-payment-failed" data-payment-id="${payment.id}" data-order-id="${order.id}">Mark Failed</button>
+                        </div>
+                    ` : '<span class="admin-table-muted">—</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
 
     return `
+        <p class="admin-table-muted" style="margin-bottom:10px;">Order payment status: <strong>${adminEscapeHtml(PAYMENT_STATUS_LABELS[orderPaymentStatus] || orderPaymentStatus || '—')}</strong></p>
+        <div class="admin-error-banner" id="orderPaymentError" hidden></div>
         <div class="admin-table-wrap">
             <table class="admin-table">
                 <thead>
-                    <tr><th>Provider</th><th>Reference</th><th>Amount</th><th>Status</th><th>Paid At</th></tr>
+                    <tr><th>Provider</th><th>Reference</th><th>Amount</th><th>Status</th><th>Paid At</th><th>Actions</th></tr>
                 </thead>
-                <tbody>
-                    ${list.map(payment => `
-                        <tr>
-                            <td>${adminEscapeHtml(payment.provider || '—')}</td>
-                            <td>${adminEscapeHtml(payment.provider_reference || '—')}</td>
-                            <td>${adminFormatPrice(payment.amount)}</td>
-                            <td>${adminEscapeHtml(payment.status || '—')}</td>
-                            <td>${formatOrderDate(payment.paid_at)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
+                <tbody>${rows}</tbody>
             </table>
         </div>
+        <p class="admin-field-hint" style="margin-top:8px;">Customer-submitted references are read-only. Use explicit actions to verify manual payments.</p>
+    `;
+}
+
+function renderRefundBalanceSummary(order, balance) {
+    const currency = order.currency_code || 'EGP';
+    return `
+        <dl class="admin-detail-block admin-refund-balance-summary">
+            <dt>Total Paid</dt><dd>${formatOrderMoneyFromMinor(balance.paidMinor, currency)}</dd>
+            <dt>Reserved Refunds</dt><dd>${formatOrderMoneyFromMinor(balance.reservedMinor, currency)}</dd>
+            <dt>Available to Refund</dt><dd><strong>${formatOrderMoneyFromMinor(balance.availableMinor, currency)}</strong></dd>
+        </dl>
+        <p class="admin-field-hint">Available balance is an estimate. The backend enforces the final refundable amount.</p>
+    `;
+}
+
+function renderRefundCreateForm(order, payment, balance) {
+    const currency = order.currency_code || 'EGP';
+    const maxAmount = minorUnitsToMoney(balance.availableMinor);
+    const provider = payment.provider || '—';
+
+    return `
+        <form class="admin-refund-create-form" data-payment-id="${payment.id}" data-order-id="${order.id}" novalidate>
+            <div class="admin-refund-create-header">
+                <strong>Create Refund</strong>
+                <span class="admin-table-muted">${adminEscapeHtml(provider)} · Payment #${adminEscapeHtml(String(payment.id))}</span>
+            </div>
+            <p class="admin-table-muted">Payment amount: ${formatOrderMoney(payment.amount, payment.currency || currency)} · Available: ${formatOrderMoneyFromMinor(balance.availableMinor, currency)}</p>
+            <div class="admin-status-update-row">
+                <label class="admin-form-field">
+                    <span class="visually-hidden">Refund amount</span>
+                    <input type="number" name="amount" min="0.01" max="${maxAmount}" step="0.01" required placeholder="Amount (${adminEscapeHtml(currency)})" aria-label="Refund amount">
+                </label>
+                <textarea name="reason" placeholder="Optional reason…" maxlength="500" aria-label="Refund reason"></textarea>
+                <button type="submit" class="admin-btn-primary">Create Refund</button>
+            </div>
+            <p class="checkout-field-error admin-refund-form-error" role="alert" hidden></p>
+        </form>
+    `;
+}
+
+function renderRefundsList(order, refunds) {
+    const currency = order.currency_code || 'EGP';
+    const rows = refunds.map(refund => {
+        const statusLabel = REFUND_STATUS_LABELS[refund.status] || refund.status || '—';
+        const provider = getRefundPaymentProvider(refund, order);
+        const transitions = REFUND_STATUS_TRANSITIONS[refund.status] || [];
+        const reason = String(refund.reason || '').trim();
+        const processedAt = refund.processed_at ? formatOrderDate(refund.processed_at) : '';
+
+        const actionButtons = transitions.map(status => {
+            const action = status === 'processed' ? 'mark-refund-processed' : 'mark-refund-failed';
+            const label = status === 'processed' ? 'Mark Processed' : 'Mark Failed';
+            const dangerClass = status === 'failed' ? ' admin-action-danger' : '';
+            return `
+                <button type="button" class="admin-action-btn${dangerClass}" data-action="${action}" data-refund-id="${refund.id}" data-payment-id="${refund.payment_id}" data-order-id="${order.id}">${label}</button>
+            `;
+        }).join('');
+
+        return `
+            <tr>
+                <td>${formatOrderMoney(refund.amount, currency)}</td>
+                <td><span class="admin-pill admin-pill-refund-${adminEscapeHtml(refund.status || '')}">${adminEscapeHtml(statusLabel)}</span></td>
+                <td>${adminEscapeHtml(reason || '—')}</td>
+                <td>${adminEscapeHtml(provider || '—')}</td>
+                <td>${formatOrderDate(refund.created_at)}</td>
+                <td>${processedAt || '—'}</td>
+                <td>
+                    ${actionButtons
+                        ? `<div class="admin-row-actions">${actionButtons}</div>`
+                        : '<span class="admin-table-muted">—</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <div class="admin-table-wrap admin-refund-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr><th>Amount</th><th>Status</th><th>Reason</th><th>Payment</th><th>Created</th><th>Processed</th><th>Actions</th></tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderRefundsSection(order) {
+    const refunds = Array.isArray(order && order.refunds) ? order.refunds : [];
+    const payments = Array.isArray(order && order.payments) ? order.payments : [];
+    const paidPayments = payments.filter(payment => payment && payment.status === 'paid');
+    const balance = getOrderRefundBalance(order);
+    const hasPaidPayments = paidPayments.length > 0;
+    const hasRefunds = refunds.length > 0;
+    const canCreateRefund = balance.availableMinor > 0 && hasPaidPayments;
+
+    if (!hasPaidPayments && !hasRefunds) {
+        return '<p class="admin-table-muted">No refunds yet. Refunds require a paid payment.</p>';
+    }
+
+    let html = '<div class="admin-error-banner" id="orderRefundError" hidden></div>';
+
+    if (hasPaidPayments) {
+        html += renderRefundBalanceSummary(order, balance);
+    }
+
+    if (hasRefunds) {
+        html += renderRefundsList(order, refunds);
+    } else {
+        html += '<p class="admin-table-muted">No refunds recorded for this order yet.</p>';
+    }
+
+    if (canCreateRefund) {
+        html += `<div class="admin-refund-create-list">${paidPayments.map(payment => renderRefundCreateForm(order, payment, balance)).join('')}</div>`;
+    } else if (hasPaidPayments && balance.availableMinor <= 0) {
+        html += '<p class="admin-table-muted">No refundable balance remains on this order.</p>';
+    }
+
+    return html;
+}
+
+function renderReturnRequestsSection(order) {
+    const returnRequests = Array.isArray(order && order.return_requests) ? order.return_requests : [];
+
+    if (returnRequests.length === 0) {
+        return '<p class="admin-table-muted">No return or exchange requests for this order.</p>';
+    }
+
+    return `
+        <div class="admin-return-list">
+            ${returnRequests.map(request => {
+                const transitions = RETURN_STATUS_TRANSITIONS[request.status] || [];
+                const statusOptions = transitions.map(status => `
+                    <option value="${status}">${adminEscapeHtml(RETURN_STATUS_LABELS[status] || status)}</option>
+                `).join('');
+                const itemLabel = getReturnItemLabel(order, request);
+                const adminNotes = String(request.admin_notes || '').trim();
+                const resolvedAt = request.resolved_at ? formatOrderDate(request.resolved_at) : '';
+
+                return `
+                    <article class="admin-return-card">
+                        <div class="admin-return-card-top">
+                            <span class="admin-pill admin-pill-status-${adminEscapeHtml(request.status || '')}">${adminEscapeHtml(RETURN_STATUS_LABELS[request.status] || request.status || '—')}</span>
+                            <span class="admin-table-muted">${adminEscapeHtml(RETURN_TYPE_LABELS[request.type] || request.type || '—')}</span>
+                        </div>
+                        <dl class="admin-detail-block">
+                            <dt>Item</dt><dd>${adminEscapeHtml(itemLabel)}</dd>
+                            <dt>Reason</dt><dd>${adminEscapeHtml(String(request.reason || '').trim() || '—')}</dd>
+                            <dt>Requested</dt><dd>${formatOrderDate(request.requested_at)}</dd>
+                            ${resolvedAt ? `<dt>Resolved</dt><dd>${resolvedAt}</dd>` : ''}
+                            ${adminNotes ? `<dt>Admin Notes</dt><dd>${adminEscapeHtml(adminNotes)}</dd>` : ''}
+                        </dl>
+                        ${statusOptions ? `
+                            <form class="admin-return-update-form" data-return-id="${request.id}" data-order-id="${order.id}" novalidate>
+                                <div class="admin-status-update-row">
+                                    <select name="status" required aria-label="New return status">
+                                        <option value="">Select new status…</option>
+                                        ${statusOptions}
+                                    </select>
+                                    <textarea name="admin_notes" placeholder="Optional admin notes…" maxlength="1000">${adminEscapeHtml(adminNotes)}</textarea>
+                                    <button type="submit" class="admin-btn-primary">Update Return</button>
+                                </div>
+                                <p class="checkout-field-error admin-return-form-error" role="alert" hidden></p>
+                            </form>
+                        ` : `<p class="admin-table-muted">No further status changes available.</p>`}
+                    </article>
+                `;
+            }).join('')}
+        </div>
+        <p class="admin-field-hint" style="margin-top:8px;">Return updates do not process refunds or restock inventory automatically.</p>
     `;
 }
 
@@ -1222,6 +1572,9 @@ function renderOrderDetailContent(order) {
         ? validNextStatuses.map(status => `<option value="${status}">${adminEscapeHtml(ORDER_STATUS_LABELS[status] || status)}</option>`).join('')
         : '';
 
+    const adminNotes = String(order.admin_notes || '').trim();
+    const customerNotes = String(order.customer_notes || '').trim();
+
     return `
         <div class="admin-order-overview">
             ${renderOrderStatusPill(order.status)}
@@ -1236,6 +1589,7 @@ function renderOrderDetailContent(order) {
                     <dt>Email</dt><dd>${adminEscapeHtml(customerEmail || '—')}</dd>
                     <dt>Phone</dt><dd>${adminEscapeHtml(customerPhone || '—')}</dd>
                     <dt>Payment Method</dt><dd>${adminEscapeHtml(order.payment_method || '—')}</dd>
+                    <dt>Currency</dt><dd>${adminEscapeHtml(order.currency_code || '—')}</dd>
                 </dl>
                 <dl class="admin-detail-block">
                     <dt>Shipping Address</dt>
@@ -1245,6 +1599,20 @@ function renderOrderDetailContent(order) {
             </div>
         </div>
 
+        ${customerNotes ? `
+            <div class="admin-form-section">
+                <h3>Customer Notes</h3>
+                <p class="admin-table-muted">${adminEscapeHtml(customerNotes)}</p>
+            </div>
+        ` : ''}
+
+        ${adminNotes ? `
+            <div class="admin-form-section">
+                <h3>Admin Notes</h3>
+                <p class="admin-table-muted">${adminEscapeHtml(adminNotes)}</p>
+            </div>
+        ` : ''}
+
         <div class="admin-form-section">
             <h3>Items</h3>
             ${renderOrderItemsTable(order.items)}
@@ -1252,16 +1620,20 @@ function renderOrderDetailContent(order) {
 
         <div class="admin-form-section">
             <h3>Totals</h3>
-            <div class="admin-totals-row"><span>Subtotal</span><span>${adminFormatPrice(order.subtotal)}</span></div>
-            <div class="admin-totals-row"><span>Shipping</span><span>${adminFormatPrice(order.shipping_fee)}</span></div>
-            <div class="admin-totals-row"><span>Discount</span><span>-${adminFormatPrice(order.discount_total)}</span></div>
-            <div class="admin-totals-row"><span>Grand Total</span><span>${adminFormatPrice(order.grand_total)}</span></div>
+            <div class="admin-totals-row"><span>Subtotal</span><span>${formatOrderMoney(order.subtotal, order.currency_code)}</span></div>
+            <div class="admin-totals-row"><span>Shipping</span><span>${formatOrderMoney(order.shipping_fee, order.currency_code)}</span></div>
+            <div class="admin-totals-row"><span>Discount</span><span>-${formatOrderMoney(order.discount_total, order.currency_code)}</span></div>
+            <div class="admin-totals-row"><span>Grand Total</span><span>${formatOrderMoney(order.grand_total, order.currency_code)}</span></div>
         </div>
 
         <div class="admin-form-section">
             <h3>Payments</h3>
-            ${renderPaymentsList(order.payments)}
-            <p class="admin-field-hint" style="margin-top:8px;">Payment status is calculated automatically from payments and refunds — there is no manual override control.</p>
+            ${renderPaymentsList(order)}
+        </div>
+
+        <div class="admin-form-section">
+            <h3>Refunds</h3>
+            ${renderRefundsSection(order)}
         </div>
 
         <div class="admin-form-section">
@@ -1275,11 +1647,16 @@ function renderOrderDetailContent(order) {
         </div>
 
         <div class="admin-form-section">
+            <h3>Return Requests</h3>
+            ${renderReturnRequestsSection(order)}
+        </div>
+
+        <div class="admin-form-section">
             <h3>Update Order Status</h3>
             <div class="admin-error-banner" id="orderStatusError" hidden></div>
             ${statusOptions
                 ? `
-                    <form id="orderStatusForm" class="admin-status-update-row">
+                    <form id="orderStatusForm" class="admin-status-update-row" data-order-id="${order.id}" novalidate>
                         <select id="orderStatusSelect" required>
                             <option value="">Select new status…</option>
                             ${statusOptions}
@@ -1294,66 +1671,315 @@ function renderOrderDetailContent(order) {
     `;
 }
 
-function wireOrderStatusForm(orderId) {
-    const form = document.getElementById('orderStatusForm');
-    if (!form) return;
+function showOrderDetailErrorBanner(elementId, message) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!message) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+    }
+    el.hidden = false;
+    el.textContent = message;
+}
 
-    const errorBox = document.getElementById('orderStatusError');
-    const submitBtn = document.getElementById('orderStatusSubmitBtn');
+async function refreshOrderDetailAndList(orderId) {
+    const response = await adminApiRequest(`/admin/orders/${orderId}`);
+    const order = response && response.data;
+    if (!order) throw new Error('Order not found.');
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (orderStatusUpdateSubmitting) return;
+    if (Array.isArray(adminOrdersCache)) {
+        const index = adminOrdersCache.findIndex(entry => String(entry.id) === String(orderId));
+        if (index >= 0) {
+            adminOrdersCache[index] = order;
+        }
+        renderOrdersTable();
+    }
 
-        const select = document.getElementById('orderStatusSelect');
-        const note = document.getElementById('orderStatusNote');
-        const status = select ? select.value : '';
+    if (orderDetailOverlay && !orderDetailOverlay.hidden && orderDetailBody) {
+        if (orderDetailTitle) orderDetailTitle.textContent = `Order ${order.order_number || `#${order.id}`}`;
+        orderDetailBody.innerHTML = renderOrderDetailContent(order);
+        wireOrderDetailActions(order.id);
+    }
 
-        if (errorBox) errorBox.hidden = true;
+    return order;
+}
 
-        if (!status) {
-            if (errorBox) {
-                errorBox.textContent = 'Please select a status.';
-                errorBox.hidden = false;
+let orderDetailActionsWired = false;
+
+function ensureOrderDetailActionsWired() {
+    if (orderDetailActionsWired || !orderDetailBody) return;
+    orderDetailActionsWired = true;
+
+    orderDetailBody.addEventListener('submit', async (event) => {
+        const statusForm = event.target.closest('#orderStatusForm');
+        if (statusForm) {
+            event.preventDefault();
+            const orderId = statusForm.dataset.orderId;
+            if (!orderId || orderStatusUpdateSubmitting) return;
+
+            const select = document.getElementById('orderStatusSelect');
+            const note = document.getElementById('orderStatusNote');
+            const status = select ? select.value : '';
+            const submitBtn = document.getElementById('orderStatusSubmitBtn');
+
+            showOrderDetailErrorBanner('orderStatusError', '');
+            if (!status) {
+                showOrderDetailErrorBanner('orderStatusError', 'Please select a status.');
+                return;
+            }
+
+            orderStatusUpdateSubmitting = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating…';
+            }
+
+            try {
+                await adminApiRequest(`/admin/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    body: { status, admin_notes: note && note.value.trim() ? note.value.trim() : undefined }
+                });
+                await refreshOrderDetailAndList(orderId);
+            } catch (error) {
+                showOrderDetailErrorBanner(
+                    'orderStatusError',
+                    error && error.message ? error.message : 'Could not update order status. Please try again.'
+                );
+            } finally {
+                orderStatusUpdateSubmitting = false;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update Status';
+                }
             }
             return;
         }
 
-        orderStatusUpdateSubmitting = true;
+        const returnForm = event.target.closest('.admin-return-update-form');
+        if (returnForm) {
+            event.preventDefault();
+            const returnId = returnForm.dataset.returnId;
+            const orderId = returnForm.dataset.orderId;
+            if (!returnId || !orderId || returnUpdateInFlight.has(returnId)) return;
+
+            const statusSelect = returnForm.querySelector('select[name="status"]');
+            const notesInput = returnForm.querySelector('textarea[name="admin_notes"]');
+            const errorEl = returnForm.querySelector('.admin-return-form-error');
+            const submitBtn = returnForm.querySelector('button[type="submit"]');
+            const status = statusSelect ? statusSelect.value : '';
+            const adminNotes = notesInput ? notesInput.value.trim() : '';
+
+            if (errorEl) {
+                errorEl.hidden = true;
+                errorEl.textContent = '';
+            }
+            if (!status) {
+                if (errorEl) {
+                    errorEl.textContent = 'Please select a status.';
+                    errorEl.hidden = false;
+                }
+                return;
+            }
+
+            returnUpdateInFlight.add(returnId);
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Updating…';
+            }
+
+            try {
+                await adminApiRequest(`/admin/returns/${returnId}/status`, {
+                    method: 'PATCH',
+                    body: { status, admin_notes: adminNotes || undefined }
+                });
+                await refreshOrderDetailAndList(orderId);
+            } catch (error) {
+                if (errorEl) {
+                    errorEl.textContent = error && error.message
+                        ? error.message
+                        : 'Could not update return request. Please try again.';
+                    errorEl.hidden = false;
+                }
+            } finally {
+                returnUpdateInFlight.delete(returnId);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Update Return';
+                }
+            }
+            return;
+        }
+
+        const refundForm = event.target.closest('.admin-refund-create-form');
+        if (!refundForm) return;
+
+        event.preventDefault();
+        const paymentId = refundForm.dataset.paymentId;
+        const orderId = refundForm.dataset.orderId;
+        const inFlightKey = `${orderId}:${paymentId}`;
+        if (!paymentId || !orderId || refundCreateInFlight.has(inFlightKey)) return;
+
+        const amountInput = refundForm.querySelector('input[name="amount"]');
+        const reasonInput = refundForm.querySelector('textarea[name="reason"]');
+        const errorEl = refundForm.querySelector('.admin-refund-form-error');
+        const submitBtn = refundForm.querySelector('button[type="submit"]');
+        const rawAmount = amountInput ? amountInput.value.trim() : '';
+        const amount = roundMoneyAmount(rawAmount);
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+
+        showOrderDetailErrorBanner('orderRefundError', '');
+        if (errorEl) {
+            errorEl.hidden = true;
+            errorEl.textContent = '';
+        }
+
+        if (!rawAmount || amount == null || amount < 0.01) {
+            const message = 'Refund amount must be at least 0.01.';
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.hidden = false;
+            }
+            return;
+        }
+
+        const maxAmount = amountInput ? Number(amountInput.max) : null;
+        if (Number.isFinite(maxAmount) && amount > maxAmount) {
+            const message = 'Refund amount exceeds the available refundable balance.';
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.hidden = false;
+            }
+            return;
+        }
+
+        if (reason.length > 500) {
+            const message = 'Refund reason must be 500 characters or fewer.';
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.hidden = false;
+            }
+            return;
+        }
+
+        refundCreateInFlight.add(inFlightKey);
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Updating…';
+            submitBtn.textContent = 'Creating…';
         }
 
         try {
-            await adminApiRequest(`/admin/orders/${orderId}/status`, {
-                method: 'PATCH',
-                body: { status, admin_notes: note && note.value.trim() ? note.value.trim() : undefined }
+            await adminApiRequest(`/admin/payments/${paymentId}/refunds`, {
+                method: 'POST',
+                body: {
+                    payment_id: Number(paymentId),
+                    order_id: Number(orderId),
+                    amount,
+                    reason: reason || undefined
+                }
             });
-
-            adminOrdersCache = null; // force a fresh reload so the list reflects the change
-            await openOrderDetail(orderId); // reload the detail view in place with the new status/history
-            await loadOrdersSection();
+            await refreshOrderDetailAndList(orderId);
         } catch (error) {
-            if (errorBox) {
-                errorBox.textContent = error && error.message ? error.message : 'Could not update order status. Please try again.';
-                errorBox.hidden = false;
+            const message = error && error.status === 403
+                ? 'You do not have permission to create refunds.'
+                : (error && error.message ? error.message : 'Could not create refund. Please try again.');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.hidden = false;
+            } else {
+                showOrderDetailErrorBanner('orderRefundError', message);
             }
         } finally {
-            orderStatusUpdateSubmitting = false;
+            refundCreateInFlight.delete(inFlightKey);
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Update Status';
+                submitBtn.textContent = 'Create Refund';
             }
+        }
+    });
+
+    orderDetailBody.addEventListener('click', async (event) => {
+        const refundBtn = event.target.closest('[data-action="mark-refund-processed"], [data-action="mark-refund-failed"]');
+        if (refundBtn && orderDetailBody.contains(refundBtn)) {
+            const refundId = refundBtn.dataset.refundId;
+            const paymentId = refundBtn.dataset.paymentId;
+            const orderId = refundBtn.dataset.orderId;
+            const action = refundBtn.dataset.action;
+            if (!refundId || !paymentId || !orderId || refundStatusUpdateInFlight.has(refundId)) return;
+
+            const status = action === 'mark-refund-processed' ? 'processed' : 'failed';
+            showOrderDetailErrorBanner('orderRefundError', '');
+            refundStatusUpdateInFlight.add(refundId);
+            refundBtn.disabled = true;
+
+            try {
+                await adminApiRequest(`/admin/payments/${paymentId}/refunds/${refundId}/status`, {
+                    method: 'PATCH',
+                    body: { status }
+                });
+                await refreshOrderDetailAndList(orderId);
+            } catch (error) {
+                showOrderDetailErrorBanner(
+                    'orderRefundError',
+                    error && error.status === 403
+                        ? 'You do not have permission to update refunds.'
+                        : (error && error.message ? error.message : 'Could not update refund status. Please try again.')
+                );
+            } finally {
+                refundStatusUpdateInFlight.delete(refundId);
+                refundBtn.disabled = false;
+            }
+            return;
+        }
+
+        const btn = event.target.closest('[data-action="mark-payment-paid"], [data-action="mark-payment-failed"]');
+        if (!btn || !orderDetailBody.contains(btn)) return;
+
+        const paymentId = btn.dataset.paymentId;
+        const orderId = btn.dataset.orderId;
+        const action = btn.dataset.action;
+        if (!paymentId || !orderId || paymentUpdateInFlight.has(paymentId)) return;
+
+        showOrderDetailErrorBanner('orderPaymentError', '');
+        paymentUpdateInFlight.add(paymentId);
+        btn.disabled = true;
+
+        try {
+            if (action === 'mark-payment-paid') {
+                await adminApiRequest(`/admin/payments/${paymentId}/paid`, { method: 'PATCH' });
+            } else if (action === 'mark-payment-failed') {
+                await adminApiRequest(`/admin/payments/${paymentId}/status`, {
+                    method: 'PATCH',
+                    body: { status: 'failed' }
+                });
+            }
+            await refreshOrderDetailAndList(orderId);
+        } catch (error) {
+            showOrderDetailErrorBanner(
+                'orderPaymentError',
+                error && error.message ? error.message : 'Could not update payment. Please try again.'
+            );
+        } finally {
+            paymentUpdateInFlight.delete(paymentId);
+            btn.disabled = false;
         }
     });
 }
 
+function wireOrderDetailActions(orderId) {
+    ensureOrderDetailActionsWired();
+    const statusForm = document.getElementById('orderStatusForm');
+    if (statusForm) statusForm.dataset.orderId = String(orderId);
+}
+
 async function openOrderDetail(orderId) {
+    if (orderDetailLoading) return;
+
     if (orderDetailTitle) orderDetailTitle.textContent = 'Order Details';
     if (orderDetailBody) orderDetailBody.innerHTML = '<p class="admin-table-muted">Loading order…</p>';
     if (orderDetailOverlay) orderDetailOverlay.hidden = false;
 
+    orderDetailLoading = true;
     try {
         const response = await adminApiRequest(`/admin/orders/${orderId}`);
         const order = response && response.data;
@@ -1362,7 +1988,7 @@ async function openOrderDetail(orderId) {
         if (orderDetailTitle) orderDetailTitle.textContent = `Order ${order.order_number || `#${order.id}`}`;
         if (orderDetailBody) {
             orderDetailBody.innerHTML = renderOrderDetailContent(order);
-            wireOrderStatusForm(order.id);
+            wireOrderDetailActions(order.id);
         }
     } catch (error) {
         const isForbidden = error && error.status === 403;
@@ -1373,6 +1999,8 @@ async function openOrderDetail(orderId) {
                     : (error && error.message ? error.message : 'Could not load order details. Please try again.')
             )}</p>`;
         }
+    } finally {
+        orderDetailLoading = false;
     }
 }
 
